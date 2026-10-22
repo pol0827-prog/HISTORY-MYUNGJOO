@@ -301,3 +301,11 @@ body{margin:0}
 .topbar .nav{align-items:center}
 .nav-qr{padding:3px 9px;font-size:12px;font-weight:700;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);margin-right:2px}
 .nav-qr:hover{color:var(--fg);border-color:var(--accent)}
+
+/* 수업 들어가는 반 · 재적수 */
+.cls-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.cls-row{display:flex;gap:8px;align-items:center;background:var(--card);border-radius:8px;padding:8px}
+.cls-row .cn{flex:1;min-width:0}
+.cls-row .cs{width:64px}
+.inline-num{flex-direction:row;align-items:center;gap:4px;font-weight:500;font-size:13px;white-space:nowrap}
+#clsSelect{min-width:180px}

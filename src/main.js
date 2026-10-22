@@ -111,7 +111,7 @@ document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = asy
 const CLOUD_COLORS = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
 function renderClose() {
   const v = visible();
-  if (lesson === 'close') $('#cStu').textContent = new Set(v.map((e) => e.sid)).size;
+  if (lesson === 'close') setStu(new Set(v.map((e) => e.sid)).size);
   $('#kw').innerHTML = '<strong>🔥 자주 등장한 핵심 키워드 Top 5:</strong>' + keywords(v).map((k) => `<span>#${esc(k)}</span>`).join('');
   $('#list').innerHTML = v.length ? [...v].sort((a, b) => ts(b) - ts(a)).map((e) =>
     `<div class="card"><div class="who">👤 ${esc(e.nick)} <span class="no">${esc(e.sid)}</span></div><q>${esc(e.body)}</q></div>`).join('')
@@ -130,7 +130,7 @@ function renderClose() {
 function renderIntro() {
   const v = iVisible(), wc = wordCounts(v), max = wc[0]?.[1] || 1;
   const people = new Set(v.map((e) => e.sid)).size;
-  if (lesson === 'intro') $('#cStu').textContent = people;
+  if (lesson === 'intro') setStu(people);
   $('#iCount').textContent = people + '명';
   $('#iTop3').textContent = wc.length ? wc.slice(0, 3).map(([w, c]) => `${w} (${c}회)`).join(' | ') : '아직 제출된 단어가 없어요';
   const order = []; wc.slice(0, 40).forEach((x, i) => (i % 2 ? order.push(x) : order.unshift(x)));
@@ -419,6 +419,45 @@ document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => {
   navigator.clipboard?.writeText(linkFor(b.dataset.copy)).then(() => toast('링크를 복사했어요'), () => toast('복사가 안 돼요. 주소를 직접 선택해 주세요'));
 }));
 
+/* ================= 수업 들어가는 반 · 재적수 (settings/classes) ================= */
+let classList = [];   // [{ name, size }]
+const classSize = () => classList.find((c) => c.name === className)?.size || 0;
+function setStu(n) { const size = classSize(); $('#cStu').textContent = size ? `${n} / ${size}` : n; }
+function renderClassPicker() {
+  const sel = $('#clsSelect'), known = classList.some((c) => c.name === className);
+  sel.innerHTML = '<option value="">반을 고르세요</option>'
+    + classList.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}${c.size ? ` (${c.size}명)` : ''}</option>`).join('')
+    + '<option value="__custom">직접 입력…</option>';
+  if (document.activeElement !== sel && document.activeElement !== $('#clsName')) {
+    sel.value = className ? (known ? className : '__custom') : '';
+    $('#clsName').value = className; $('#clsName').hidden = sel.value !== '__custom';
+  }
+}
+$('#clsSelect').onchange = (e) => {
+  const v = e.target.value; $('#clsName').hidden = v !== '__custom';
+  if (v === '__custom') { $('#clsName').value = ''; $('#clsName').focus(); } else $('#clsName').value = v;
+};
+function clsRow(c = { name: '', size: '' }) {
+  return `<div class="cls-row"><input class="cn" maxlength="20" placeholder="예: 2학년 1반" value="${esc(c.name)}" aria-label="반 이름">
+    <label class="inline-num">재적 <input class="cs" type="number" min="1" max="60" inputmode="numeric" value="${c.size || ''}" aria-label="재적수">명</label>
+    <button type="button" class="sm danger rm">삭제</button></div>`;
+}
+let clsEditing = false;
+function renderClassEditor() {
+  if (clsEditing) return;
+  $('#clsList').innerHTML = (classList.length ? classList : [{ name: '', size: '' }]).map(clsRow).join('');
+}
+$('#clsList').addEventListener('input', () => (clsEditing = true));
+$('#clsList').onclick = (e) => { if (e.target.closest('.rm')) { e.target.closest('.cls-row').remove(); clsEditing = true; } };
+$('#clsAdd').onclick = () => { $('#clsList').insertAdjacentHTML('beforeend', clsRow()); clsEditing = true; $('#clsList .cls-row:last-child .cn').focus(); };
+$('#clsListSave').onclick = async () => {
+  const list = [...document.querySelectorAll('#clsList .cls-row')].map((r) => ({ name: r.querySelector('.cn').value.trim(), size: Math.max(0, Math.trunc(Number(r.querySelector('.cs').value) || 0)) }))
+    .filter((c) => c.name);
+  const names = list.map((c) => c.name); if (new Set(names).size !== names.length) return toast('같은 반 이름이 두 번 있어요. 하나를 지워 주세요');
+  try { await setDoc(doc(db, 'settings', 'classes'), { list }); clsEditing = false; toast(`반 ${list.length}개를 저장했어요`); }
+  catch { toast('저장하지 못했어요'); }
+};
+
 /* ================= 반별 수업 기록 (archives) ================= */
 let className = '', archives = [];
 const fmtWhen = (t) => { const d = t?.toDate?.(); if (!d) return '-'; return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DAYS[d.getDay()]}) ${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -431,7 +470,7 @@ async function saveArchive(memo = '') {
     entries: allEntries.map((e) => ({ id: e.id, sid: e.sid, nick: e.nick, body: e.body, hidden: e.hidden, at: ms(e), name: names.get(e.id)?.name || '' })),
     intro: allIntro.map((e) => ({ id: e.id, sid: e.sid, name: e.name, w1: e.w1, w2: e.w2, hidden: e.hidden, at: ms(e) })),
     picks, ai: aiSel,
-    counts: { intro: new Set(allIntro.map((e) => e.sid)).size, close: allEntries.length },
+    counts: { intro: new Set(allIntro.map((e) => e.sid)).size, close: allEntries.length, size: classSize() },
   });
   return ref.id;
 }
@@ -456,19 +495,20 @@ async function restoreArchive(a) {
 function renderArchives() {
   $('#archRows').innerHTML = archives.length ? archives.map((a) => `<tr data-id="${a.id}">
     <td><b>${esc(a.className)}</b></td><td class="num">${fmtWhen(a.savedAt)}</td>
-    <td class="num">${a.counts?.intro ?? 0}명</td><td class="num">${a.counts?.close ?? 0}편</td><td class="memo">${esc(a.memo || '')}</td>
+    <td class="num">${a.counts?.intro ?? 0}${a.counts?.size ? ` / ${a.counts.size}` : ''}명</td><td class="num">${a.counts?.close ?? 0}편</td><td class="memo">${esc(a.memo || '')}</td>
     <td class="act"><div class="row"><button type="button" class="sm primary" data-a="load">불러오기</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
     : '<tr><td colspan="6" class="empty">아직 저장된 수업 기록이 없어요. 수업이 끝나면 💾 지금 기록 저장을 눌러 주세요.</td></tr>';
 }
+const pickedClass = () => ($('#clsSelect').value === '__custom' ? $('#clsName').value.trim() : $('#clsSelect').value);
 $('#clsForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  try { await setDoc(doc(db, 'settings', 'state'), { className: $('#clsName').value.trim() }, { merge: true }); toast('지금 수업하는 반을 정했어요'); }
+  try { await setDoc(doc(db, 'settings', 'state'), { className: pickedClass() }, { merge: true }); $('#clsSelect').blur(); toast(pickedClass() ? `지금 수업하는 반: ${pickedClass()}` : '반 선택을 비웠어요'); }
   catch { toast('저장하지 못했어요'); }
 });
 $('#archSave').onclick = async () => {
   const btn = $('#archSave'); btn.disabled = true;
   try {
-    if ($('#clsName').value.trim() !== className) { className = $('#clsName').value.trim(); await setDoc(doc(db, 'settings', 'state'), { className }, { merge: true }); }
+    if (pickedClass() !== className) { className = pickedClass(); await setDoc(doc(db, 'settings', 'state'), { className }, { merge: true }); }
     const id = await saveArchive('직접 저장');
     toast(id ? `${className || '반 이름 없음'} 기록을 저장했어요` : '저장할 학생 기록이 아직 없어요');
   } catch (err) { console.error(err); toast('기록을 저장하지 못했어요'); }
@@ -665,13 +705,14 @@ if (!configured) {
   onSnapshot(query(collection(db, 'intro'), where('hidden', '==', false)), (s) => { pubIntro = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
   onSnapshot(doc(db, 'settings', 'picks'), (d) => { const x = d.data() || {}; picks = { teacher: x.teacher ?? null, best: Array.isArray(x.best) ? x.best : [null, null, null] }; renderAll(); });
+  onSnapshot(doc(db, 'settings', 'classes'), (d) => { classList = Array.isArray(d.data()?.list) ? d.data().list : []; renderClassPicker(); renderClassEditor(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'photos'), (d) => { const x = d.data() || {}; photos = { map: x.map || '', emblem: x.emblem || '' }; applyPhotos(); });
   onSnapshot(doc(db, 'settings', 'ai'), (d) => { const x = d.data() || {}; aiSel = { id: x.id ?? null, reason: x.reason || '' }; renderAll(); });
   // 교사가 고른 화면(배움 시작/마무리)을 교실 화면이 따라감
   onSnapshot(doc(db, 'settings', 'state'), (d) => {
     const x = d.data() || {}; className = x.className || '';
     $('#clsChip').hidden = !className; $('#clsChip').textContent = className;
-    if (document.activeElement !== $('#clsName')) $('#clsName').value = className;
+    renderClassPicker();
     showLesson(x.lesson || 'close');
   });
   // 이 기기가 이미 비밀번호로 들어온 적이 있으면 교사 관리 모드 유지
