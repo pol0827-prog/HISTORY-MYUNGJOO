@@ -299,5 +299,5 @@ body{margin:0}
 
 .qr-float{top:calc(env(safe-area-inset-top,0px) + var(--tb-h,49px) + 10px)}
 .topbar .nav{align-items:center}
-.nav-qr{padding:3px 9px;font-size:12px;font-weight:700;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);margin-right:6px}
+.nav-qr{padding:3px 9px;font-size:12px;font-weight:700;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);margin-right:2px}
 .nav-qr:hover{color:var(--fg);border-color:var(--accent)}
