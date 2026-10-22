@@ -278,3 +278,11 @@ body{margin:0}
 .topbar .in{max-width:none}
 @media (min-width:901px){:root[data-qr="open"] #v-class{padding-right:calc(max(16px,env(safe-area-inset-right,0px)) + 208px)}}
 .map img.drawn{object-fit:contain;background:#d9cc9c}
+
+/* 반별 수업 기록 */
+.arch label.inline{flex-direction:row;align-items:center;gap:8px;font-weight:600}
+.arch label.inline input{width:180px}
+#archSave{margin-left:auto}
+.arch-tbl{min-width:640px}
+.arch-tbl td.memo{color:var(--muted);font-size:12px}
+.cls-chip{background:var(--accent);color:var(--accent-ink)}

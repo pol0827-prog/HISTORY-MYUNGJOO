@@ -31,18 +31,18 @@ service cloud.firestore {
     // 오늘 배움 마무리: 일기 (수업 화면에 보이는 정보만, 이름 없음)
     match /entries/{id} {
       allow read: if resource.data.hidden == false || isTeacher();
-      allow create: if request.resource.data.keys().hasOnly(['sid', 'nick', 'body', 'hidden', 'createdAt'])
+      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'nick', 'body', 'hidden', 'createdAt'])
         && validSid(request.resource.data.sid)
         && text(request.resource.data.nick, 40)
         && text(request.resource.data.body, 300)
         && request.resource.data.hidden == false
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt == request.time;   // (교사는 저장 기록 불러오기 때 원래 시각으로 복원)
       allow update, delete: if isTeacher();
     }
 
     // 오늘 배움 마무리: 학생 이름 (교사만 볼 수 있음)
     match /entryNames/{id} {
-      allow create: if request.resource.data.keys().hasOnly(['sid', 'name'])
+      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'name'])
         && validSid(request.resource.data.sid)
         && text(request.resource.data.name, 20)
         && existsAfter(/databases/$(database)/documents/entries/$(id));
@@ -52,7 +52,7 @@ service cloud.firestore {
     // 오늘 배움 시작: 연상 단어 (원본처럼 학번·이름이 수업 화면에 보임)
     match /intro/{id} {
       allow read: if resource.data.hidden == false || isTeacher();
-      allow create: if request.resource.data.keys().hasOnly(['sid', 'name', 'w1', 'w2', 'hidden', 'createdAt'])
+      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'name', 'w1', 'w2', 'hidden', 'createdAt'])
         && validSid(request.resource.data.sid)
         && text(request.resource.data.name, 20)
         && text(request.resource.data.w1, 20)
@@ -60,6 +60,11 @@ service cloud.firestore {
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time;
       allow update, delete: if isTeacher();
+    }
+
+    // 반별 수업 기록 (학생 이름 포함): 교사만
+    match /archives/{id} {
+      allow read, write: if isTeacher();
     }
 
     // 화면 설정, 추천, AI 추천, 지금 화면(배움 시작/마무리): 누구나 읽기, 교사만 바꾸기

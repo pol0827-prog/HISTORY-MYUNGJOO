@@ -1,7 +1,7 @@
 import './style.css';
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc, onSnapshot, query, where,
-  getDocs, getDocsFromServer, serverTimestamp, writeBatch,
+  getDocs, getDocsFromServer, serverTimestamp, writeBatch, orderBy, Timestamp,
 } from 'firebase/firestore';
 import { signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
 import QRCode from 'qrcode';
@@ -103,7 +103,7 @@ function showLesson(m) {
 document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = async () => {
   showLesson(b.dataset.lesson);
   const msg = b.dataset.lesson === 'intro' ? '오늘 배움 시작 화면으로 바꿨어요' : '오늘 배움 마무리 화면으로 바꿨어요';
-  if (isTeacher) { try { await setDoc(doc(db, 'settings', 'state'), { lesson }); } catch { /* 이 화면만 바뀜 */ } }
+  if (isTeacher) { try { await setDoc(doc(db, 'settings', 'state'), { lesson }, { merge: true }); } catch { /* 이 화면만 바뀜 */ } }
   toast(msg);
 }));
 
@@ -392,24 +392,89 @@ async function deleteAll(col, alsoCol) {
     await bt.commit();
   }
 }
-function confirmBox(box, text, onOk) {
-  box.innerHTML = `<div class="confirm" style="margin-bottom:12px"><span>${text}</span><button type="button" class="sm danger">모두 지우기</button><button type="button" class="sm">취소</button></div>`;
+function confirmBox(box, text, onOk, okLabel = '지우기') {
+  box.innerHTML = `<div class="confirm" style="margin-bottom:12px"><span>${text}</span><button type="button" class="sm danger">${okLabel}</button><button type="button" class="sm">취소</button></div>`;
   const [ok, no] = box.querySelectorAll('button');
   no.onclick = () => (box.innerHTML = '');
   ok.onclick = async () => { ok.disabled = true; try { await onOk(); box.innerHTML = ''; } catch (err) { console.error(err); toast('지우지 못했어요'); ok.disabled = false; } };
 }
-$('#clearAll').onclick = () => confirmBox($('#clearBox'), `일기 ${allEntries.length}건을 모두 지우고 새 수업을 시작할까요? 되돌릴 수 없어요.`, async () => {
+$('#clearAll').onclick = () => confirmBox($('#clearBox'), `일기 ${allEntries.length}건을 지울까요? 지우기 전에 반별 수업 기록으로 자동 저장해 두니, 나중에 다시 불러올 수 있어요.`, async () => {
+  await saveArchive('비우기 전 자동 저장');
   await deleteAll('entries', 'entryNames');
   await setDoc(doc(db, 'settings', 'picks'), { teacher: null, best: [null, null, null] });
   await setDoc(doc(db, 'settings', 'ai'), { id: null, reason: '' });
   toast('새 수업을 시작했어요');
 });
-$('#iClearAll').onclick = () => confirmBox($('#iClearBox'), `연상 단어 ${allIntro.length}건을 모두 지울까요? 되돌릴 수 없어요.`, async () => {
+$('#iClearAll').onclick = () => confirmBox($('#iClearBox'), `연상 단어 ${allIntro.length}건을 지울까요? 지우기 전에 반별 수업 기록으로 자동 저장해 두니, 나중에 다시 불러올 수 있어요.`, async () => {
+  await saveArchive('비우기 전 자동 저장');
   await deleteAll('intro'); toast('배움 시작 기록을 비웠어요');
 });
 document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => {
   navigator.clipboard?.writeText(linkFor(b.dataset.copy)).then(() => toast('링크를 복사했어요'), () => toast('복사가 안 돼요. 주소를 직접 선택해 주세요'));
 }));
+
+/* ================= 반별 수업 기록 (archives) ================= */
+let className = '', archives = [];
+const fmtWhen = (t) => { const d = t?.toDate?.(); if (!d) return '-'; return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DAYS[d.getDay()]}) ${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const ms = (e) => e.at?.getTime?.() ?? Date.now();
+// 지금 기록 전체를 한 문서로 보관 (사진·화면 설정은 그대로 두고 수업 기록만)
+async function saveArchive(memo = '') {
+  if (!allEntries.length && !allIntro.length) return null;
+  const ref = await addDoc(collection(db, 'archives'), {
+    className: className || '반 이름 없음', memo, savedAt: serverTimestamp(),
+    entries: allEntries.map((e) => ({ id: e.id, sid: e.sid, nick: e.nick, body: e.body, hidden: e.hidden, at: ms(e), name: names.get(e.id)?.name || '' })),
+    intro: allIntro.map((e) => ({ id: e.id, sid: e.sid, name: e.name, w1: e.w1, w2: e.w2, hidden: e.hidden, at: ms(e) })),
+    picks, ai: aiSel,
+    counts: { intro: new Set(allIntro.map((e) => e.sid)).size, close: allEntries.length },
+  });
+  return ref.id;
+}
+async function commitInChunks(ops) {
+  for (let i = 0; i < ops.length; i += 400) { const bt = writeBatch(db); ops.slice(i, i + 400).forEach((f) => f(bt)); await bt.commit(); }
+}
+async function restoreArchive(a) {
+  // 지금 기록이 있으면 먼저 자동 저장해서 아무것도 잃지 않게
+  await saveArchive('불러오기 전 자동 저장');
+  await deleteAll('entries', 'entryNames'); await deleteAll('intro');
+  const ops = [];
+  (a.entries || []).forEach((e) => {
+    ops.push((bt) => bt.set(doc(db, 'entries', e.id), { sid: e.sid, nick: e.nick, body: e.body, hidden: !!e.hidden, createdAt: Timestamp.fromMillis(e.at) }));
+    if (e.name) ops.push((bt) => bt.set(doc(db, 'entryNames', e.id), { sid: e.sid, name: e.name }));
+  });
+  (a.intro || []).forEach((e) => ops.push((bt) => bt.set(doc(db, 'intro', e.id), { sid: e.sid, name: e.name, w1: e.w1, w2: e.w2, hidden: !!e.hidden, createdAt: Timestamp.fromMillis(e.at) })));
+  await commitInChunks(ops);
+  await setDoc(doc(db, 'settings', 'picks'), a.picks || { teacher: null, best: [null, null, null] });
+  await setDoc(doc(db, 'settings', 'ai'), a.ai || { id: null, reason: '' });
+  await setDoc(doc(db, 'settings', 'state'), { className: a.className === '반 이름 없음' ? '' : a.className }, { merge: true });
+}
+function renderArchives() {
+  $('#archRows').innerHTML = archives.length ? archives.map((a) => `<tr data-id="${a.id}">
+    <td><b>${esc(a.className)}</b></td><td class="num">${fmtWhen(a.savedAt)}</td>
+    <td class="num">${a.counts?.intro ?? 0}명</td><td class="num">${a.counts?.close ?? 0}편</td><td class="memo">${esc(a.memo || '')}</td>
+    <td class="act"><div class="row"><button type="button" class="sm primary" data-a="load">불러오기</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
+    : '<tr><td colspan="6" class="empty">아직 저장된 수업 기록이 없어요. 수업이 끝나면 💾 지금 기록 저장을 눌러 주세요.</td></tr>';
+}
+$('#clsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try { await setDoc(doc(db, 'settings', 'state'), { className: $('#clsName').value.trim() }, { merge: true }); toast('지금 수업하는 반을 정했어요'); }
+  catch { toast('저장하지 못했어요'); }
+});
+$('#archSave').onclick = async () => {
+  const btn = $('#archSave'); btn.disabled = true;
+  try {
+    if ($('#clsName').value.trim() !== className) { className = $('#clsName').value.trim(); await setDoc(doc(db, 'settings', 'state'), { className }, { merge: true }); }
+    const id = await saveArchive('직접 저장');
+    toast(id ? `${className || '반 이름 없음'} 기록을 저장했어요` : '저장할 학생 기록이 아직 없어요');
+  } catch (err) { console.error(err); toast('기록을 저장하지 못했어요'); }
+  finally { btn.disabled = false; }
+};
+$('#archRows').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const a = archives.find((x) => x.id === b.closest('tr').dataset.id); if (!a) return;
+  const when = fmtWhen(a.savedAt);
+  if (b.dataset.a === 'load') confirmBox($('#archBox'), `${esc(a.className)} (${when}) 기록을 불러올까요? 지금 화면의 기록은 먼저 자동 저장한 뒤 바뀌어요.`, async () => { await restoreArchive(a); toast(`${a.className} 기록을 불러왔어요`); }, '불러오기');
+  if (b.dataset.a === 'del') confirmBox($('#archBox'), `${esc(a.className)} (${when}) 저장 기록을 삭제할까요? 삭제한 기록은 되돌릴 수 없어요.`, async () => { await deleteDoc(doc(db, 'archives', a.id)); toast('저장 기록을 삭제했어요'); }, '삭제');
+};
 
 /* 비밀번호로 들어가기: 비밀번호 확인은 Firestore 보안 규칙이 함 (코드에는 비밀번호 없음) */
 $('#lockForm').addEventListener('submit', async (e) => {
@@ -441,6 +506,7 @@ async function enterTeacher() {
     onSnapshot(collection(db, 'entries'), (s) => { allEntries = s.docs.map(toEntry); renderAll(); }, onErr),
     onSnapshot(collection(db, 'entryNames'), (s) => { names = new Map(s.docs.map((d) => [d.id, d.data()])); renderAll(); }, onErr),
     onSnapshot(collection(db, 'intro'), (s) => { allIntro = s.docs.map(toEntry); renderAll(); }, onErr),
+    onSnapshot(query(collection(db, 'archives'), orderBy('savedAt', 'desc')), (s) => { archives = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })); renderArchives(); }, onErr),
   ];
   fillCfgForm(cfg); renderAll();
 }
@@ -596,7 +662,12 @@ if (!configured) {
   onSnapshot(doc(db, 'settings', 'photos'), (d) => { const x = d.data() || {}; photos = { map: x.map || '', emblem: x.emblem || '' }; applyPhotos(); });
   onSnapshot(doc(db, 'settings', 'ai'), (d) => { const x = d.data() || {}; aiSel = { id: x.id ?? null, reason: x.reason || '' }; renderAll(); });
   // 교사가 고른 화면(배움 시작/마무리)을 교실 화면이 따라감
-  onSnapshot(doc(db, 'settings', 'state'), (d) => showLesson(d.data()?.lesson || 'close'));
+  onSnapshot(doc(db, 'settings', 'state'), (d) => {
+    const x = d.data() || {}; className = x.className || '';
+    $('#clsChip').hidden = !className; $('#clsChip').textContent = className;
+    if (document.activeElement !== $('#clsName')) $('#clsName').value = className;
+    showLesson(x.lesson || 'close');
+  });
   // 이 기기가 이미 비밀번호로 들어온 적이 있으면 교사 관리 모드 유지
   onAuthStateChanged(auth, async (user) => {
     if (!user) return leaveTeacher();
