@@ -568,8 +568,9 @@ function route() {
   const v = V.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'class';
   V.forEach((x) => ($('#v-' + x).hidden = x !== v));
   document.querySelectorAll('.topbar .nav a').forEach((l) => (l.dataset.v === v ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
-  // 학생 제출 화면에서는 교사용 메뉴를 숨김
-  $('.topbar .nav').hidden = v === 'intro' || v === 'write';
+  // QR로 바로 들어온 학생에게는 메뉴를 숨기고, 위쪽 메뉴를 눌러 미리보기로 들어온 경우에는 보여 줌
+  let fromNav = false; try { fromNav = sessionStorage.getItem('navOpen') === '1'; } catch { /* 무시 */ }
+  $('.topbar .nav').hidden = (v === 'intro' || v === 'write') && !fromNav && !isTeacher;
   renderQrFloat();
   window.scrollTo(0, 0);
 }
@@ -579,6 +580,7 @@ if (!configured) {
   ['class', 'intro', 'write', 'teacher'].forEach((x) => ($('#v-' + x).hidden = true));
   $('#setup').hidden = false;
 } else {
+  document.querySelectorAll('.topbar .nav a').forEach((l) => l.addEventListener('click', () => { try { sessionStorage.setItem('navOpen', '1'); } catch { /* 무시 */ } }));
   window.addEventListener('hashchange', route);
   route();
   // 누구나 보는 데이터: 실시간으로 바로 반영
