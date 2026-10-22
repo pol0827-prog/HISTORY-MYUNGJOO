@@ -272,3 +272,9 @@ body{margin:0}
 .topbar .nav a{color:var(--muted);text-decoration:none;padding:5px 12px;border-radius:999px;font-weight:600;font-size:13px;border:1px solid transparent}
 .topbar .nav a:hover{color:var(--fg)}
 .topbar .nav a[aria-current="page"]{color:var(--accent);border-color:var(--accent)}
+
+/* 수업 화면 보드판을 화면 너비 끝까지 (QR 자리만 비움) */
+#v-class{max-width:none}
+.topbar .in{max-width:none}
+@media (min-width:901px){:root[data-qr="open"] #v-class{padding-right:calc(max(16px,env(safe-area-inset-right,0px)) + 208px)}}
+.map img.drawn{object-fit:contain;background:#d9cc9c}

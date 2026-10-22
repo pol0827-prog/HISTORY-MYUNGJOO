@@ -184,11 +184,16 @@ $('#qfBig').onclick = () => $('#btnQR').click();
 document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.hidden = true; }));
 
 /* 지도: public/map.jpg 가 있으면 사진, 없으면 직접 그린 지도 */
-let mapDrawn = false;
-function showDrawnMap() { $('#mapImg').hidden = true; $('#map').hidden = false; if (!mapDrawn) { drawMap(); mapDrawn = true; } }
+let drawnMapUrl = '';
+/* 그린 지도를 사진처럼 보여 줘서 칸이 넓어져도 늘어나지 않고 알맞게 잘리도록 */
+function showDrawnMap() {
+  if (!drawnMapUrl) { drawMap(); drawnMapUrl = $('#map').toDataURL('image/png'); }
+  const img = $('#mapImg'); img.onerror = null; img.src = drawnMapUrl; img.hidden = false; img.classList.add('drawn'); $('#map').hidden = true;
+}
 let photos = { map: '', emblem: '' };
 function applyPhotos() {
   const img = $('#mapImg');
+  img.classList.remove('drawn');
   if (photos.map) { img.onerror = null; img.src = photos.map; img.hidden = false; $('#map').hidden = true; }
   else { img.onerror = showDrawnMap; img.src = '/map.jpg'; img.hidden = false; $('#map').hidden = true; if (img.complete && !img.naturalWidth) showDrawnMap(); }
   $('#emblemImg').hidden = !photos.emblem; if (photos.emblem) $('#emblemImg').src = photos.emblem; $('#emblemSvg').hidden = !!photos.emblem;
