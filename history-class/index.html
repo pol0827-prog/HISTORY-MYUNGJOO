@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>배움 일기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+</head>
+<body>
+<style>#noRun{visibility:hidden;animation:noRunShow 0s 1.5s forwards}@keyframes noRunShow{to{visibility:visible}}</style>
+<div id="noRun" style="max-width:640px;margin:60px auto;padding:24px;font-family:sans-serif;line-height:1.7;background:#172136;color:#e6ebf5;border-radius:12px">
+  <h2 style="margin-top:0">이 파일은 더블클릭으로는 열리지 않아요</h2>
+  <p>Vercel에 배포한 주소로 열거나, 이 폴더에서 <code>npm install</code> → <code>npm run dev</code> 후 <code>http://localhost:5173</code>을 여세요.</p>
+  <p>화면만 미리 보려면 함께 있는 <b>미리보기-데모.html</b>을 더블클릭하세요.</p>
+</div>
+<div class="page" id="setup" hidden>
+  <section class="panel">
+    <h2>⚙️ Firebase 설정이 필요해요</h2>
+    <p>Vercel 환경 변수(또는 .env 파일)에 Firebase 값을 넣으면 앱이 동작합니다. README.md의 순서를 따라 주세요.</p>
+  </section>
+</div>
+<div class="topbar"><div class="in"><div class="tools">
+  <time class="clock" id="clock"></time>
+  <button type="button" class="mode-btn" id="modeBtn" aria-label="밝게/어둡게 전환"></button>
+</div></div></div>
+
+<!-- ===== 수업 화면 (학생과 함께 보기) ===== -->
+<div class="page" id="v-class" hidden>
+  <header class="panel">
+    <div>
+      <h1 data-t="{icon} {title}"></h1>
+      <div class="sub close-only" data-t="{subtitle}"></div>
+      <div class="sub intro-only" data-t="{introSubtitle}"></div>
+    </div>
+    <div class="row">
+      <div class="lesson-switch" role="group" aria-label="오늘 배움 시작 또는 마무리">
+        <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
+        <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
+      </div>
+      <span class="chip">학생 수: <span id="cStu">0</span>명</span>
+      <button type="button" id="btnRefresh">데이터 새로고침</button>
+      <button type="button" id="btnQR" class="primary"><span class="close-only" data-t="{subject} 일기 제출 QR 코드"></span><span class="intro-only">연상 단어 제출 QR 코드</span></button>
+      <div class="emblem" aria-hidden="true"><svg width="40" height="34" viewBox="0 0 40 34"><g fill="#c9b98a"><rect x="4" y="2" width="32" height="4" rx="1"/><rect x="7" y="8" width="4" height="20"/><rect x="18" y="8" width="4" height="20"/><rect x="29" y="8" width="4" height="20"/><rect x="2" y="29" width="36" height="4" rx="1"/></g></svg></div>
+    </div>
+  </header>
+  <div class="contents intro-only">
+    <div class="pair">
+      <section class="panel stat-card"><div class="muted">👥 연상 단어 제출 학생 수</div><b class="big-num" id="iCount">0명</b></section>
+      <section class="panel stat-card"><div class="muted">💡 연상 단어를 통해 정리해보는 수업 최다 키워드 Top 3</div><div class="top3" id="iTop3"></div></section>
+    </div>
+    <div class="pair">
+      <section class="panel"><h2>☁️ 학생 연상 단어 구름 (Word Cloud)</h2><div class="cloud" id="cloud"></div></section>
+      <section class="panel"><h2>📊 연상 단어 제출 빈도 Top 5 (막대그래프)</h2><div class="bars" id="bars"></div></section>
+    </div>
+    <section class="panel"><h2 data-t="📖 학생별 {subject} 연상 단어 제출 목록"></h2><div class="list" id="iList"></div></section>
+  </div>
+  <div class="contents close-only">
+  <div class="panel kw" id="kw"></div>
+  <div class="two">
+    <section class="panel"><h2 data-t="📖 학생별 {subject} 배움 일기 목록"></h2><div class="list" id="list"></div></section>
+    <section class="panel"><h2 data-t="{side}"></h2><div class="map"><img id="mapImg" src="/map.jpg" alt="세계지도"><canvas id="map" width="600" height="800" hidden></canvas></div></section>
+  </div>
+  <div class="pair">
+    <section class="panel"><h2>🏆 선생님 추천 일기</h2><div class="quote-o" id="tQuote"></div><div class="by" id="tBy"></div></section>
+    <section class="panel"><h2>🤖 AI 추천 일기</h2><div class="quote-g" id="aiQuote"></div><div class="by" id="aiBy"></div><div class="why" id="aiWhy"></div></section>
+  </div>
+  <section class="panel best"><h2 style="color:var(--orange)" data-t="✨ 오늘의 {subject} 별명 명작 추천"></h2><div class="trio" id="trio"></div></section>
+  </div>
+  <footer class="panel">
+    <div class="close-only">
+      <blockquote><span data-t="&quot;{quote}&quot;"></span> <cite data-t="- {quoteBy} -"></cite></blockquote>
+      <p data-t="{closing}"></p>
+    </div>
+    <div class="intro-only">
+      <blockquote><span data-t="&quot;{introQuote}&quot;"></span> <cite data-t="- {introQuoteBy} -"></cite></blockquote>
+      <p data-t="{introClosing}"></p>
+    </div>
+  </footer>
+</div>
+
+<!-- ===== 학생 제출 (배움 시작) ===== -->
+<div class="page" id="v-intro" hidden>
+  <section class="panel write">
+    <h1 style="font-size:22px;margin-bottom:4px" data-t="💡 {subject} 연상 단어"></h1>
+    <p class="muted" style="margin:0 0 16px" data-t="{introHelp}"></p>
+    <form id="introForm">
+      <div class="row2">
+        <label>학번 <input id="iSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="예: 20101" title="숫자 4~6자리로 적어 주세요"></label>
+        <label>이름 <input id="iName" required maxlength="20" placeholder="예: 홍길동"></label>
+      </div>
+      <div class="row2">
+        <label>떠오르는 단어 1 <input id="iW1" required maxlength="20" placeholder="단어 하나"></label>
+        <label>떠오르는 단어 2 <input id="iW2" required maxlength="20" placeholder="단어 하나"></label>
+      </div>
+      <button type="submit" class="primary">제출하기</button>
+      <div class="err" id="iErr"></div>
+    </form>
+    <div class="done" id="iDone" hidden>
+      <div class="big">제출 완료!</div>
+      <div class="muted">수업 화면의 단어 구름에 내 단어가 들어갔어요.</div>
+      <button type="button" id="iAgain">다시 쓰기</button>
+    </div>
+  </section>
+</div>
+
+<!-- ===== 학생 제출 ===== -->
+<div class="page" id="v-write" hidden>
+  <section class="panel write">
+    <h1 style="font-size:22px;margin-bottom:4px" data-t="📝 {subject} 배움 일기"></h1>
+    <p class="muted" style="margin:0 0 16px" data-t="{title}"></p>
+    <form id="diaryForm">
+      <div class="row2">
+        <label>학번 <input id="wSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="예: 20101" title="숫자 4~6자리로 적어 주세요"></label>
+        <label>이름 <input id="wName" required maxlength="20" placeholder="예: 홍길동"></label>
+      </div>
+      <label><span data-t="나의 {subject} 별명"></span> <span class="muted" data-t="{nickHelp}"></span>
+        <input id="wNick" required maxlength="40" data-ph="{nickEx}"></label>
+      <label><span data-t="오늘의 {subject} 배움 일기"></span> <span class="muted" data-t="{bodyHelp}"></span>
+        <textarea id="wBody" required maxlength="300" placeholder="오늘 수업에서 배우고 느낀 점을 적어 보세요."></textarea></label>
+      <button type="submit" class="primary">제출하기</button>
+      <div class="err" id="wErr"></div>
+    </form>
+    <div class="done" id="done" hidden>
+      <div class="big">제출 완료!</div>
+      <div class="muted">수업 화면에 내 일기가 올라갔어요.</div>
+      <button type="button" id="again">하나 더 쓰기</button>
+    </div>
+  </section>
+</div>
+
+<!-- ===== 교사 관리 모드 ===== -->
+<div class="page" id="v-teacher" hidden>
+  <section class="panel lock" id="lock">
+    <h2>🔒 교사 관리 모드</h2>
+    <p class="muted" style="margin:0">선생님 비밀번호를 입력하세요.</p>
+    <form id="lockForm" class="row">
+      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" aria-label="교사 비밀번호" placeholder="비밀번호" style="flex:1">
+      <button class="primary" type="submit">들어가기</button>
+    </form>
+    <div class="err" id="pinMsg"></div>
+  </section>
+
+  <div id="tBody" hidden style="display:contents">
+    <header class="panel">
+      <div><h1>교사 관리 모드</h1><div class="sub">학생이 보낸 일기를 확인하고 숨기기·수정·삭제, 수업 화면 추천을 정합니다</div></div>
+      <div class="row"><a class="btn" href="#class" target="_blank" rel="noopener">수업 화면 새 창으로 열기</a><button type="button" id="logout">나가기</button></div>
+    </header>
+
+    <section class="panel lesson-bar">
+      <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다.</div></div>
+      <div class="lesson-switch big" role="group" aria-label="오늘 배움 시작 또는 마무리">
+        <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
+        <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
+      </div>
+    </section>
+
+    <div class="contents intro-only">
+      <div class="stats">
+        <div class="stat"><b id="isAll">0</b><span>전체 제출</span></div>
+        <div class="stat"><b id="isShow">0</b><span>수업 화면에 표시 중</span></div>
+        <div class="stat"><b id="isHide">0</b><span>숨김</span></div>
+        <div class="stat"><b id="isWords">0</b><span>서로 다른 단어</span></div>
+      </div>
+      <section class="panel">
+        <h2>🗂️ 제출된 연상 단어 <span class="muted" id="iCnt"></span></h2>
+        <div class="row" style="margin-bottom:12px">
+          <input id="iq" type="search" placeholder="학번·이름·단어 검색" aria-label="검색" style="flex:1">
+          <button type="button" class="danger" id="iClearAll">배움 시작 기록 전체 비우기</button>
+        </div>
+        <div id="iClearBox"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>학번</th><th>이름</th><th>단어 1</th><th>단어 2</th><th>제출 시각</th><th>상태</th><th>관리</th></tr></thead>
+          <tbody id="iRows"></tbody>
+        </table></div>
+      </section>
+    </div>
+
+    <div class="contents close-only">
+    <div class="stats">
+      <div class="stat"><b id="sAll">0</b><span>전체 제출</span></div>
+      <div class="stat"><b id="sShow">0</b><span>수업 화면에 표시 중</span></div>
+      <div class="stat"><b id="sHide">0</b><span>숨김</span></div>
+      <div class="stat"><b id="sStu">0</b><span>제출한 학생</span></div>
+    </div>
+
+    <section class="panel">
+      <h2>📌 수업 화면에 보일 추천</h2>
+      <div class="picks">
+        <label>🏆 선생님 추천 일기 <select id="pTeacher"></select></label>
+        <label>✨ 별명 명작 추천 1 <select id="pB1"></select></label>
+        <label>✨ 별명 명작 추천 2 <select id="pB2"></select></label>
+        <label>✨ 별명 명작 추천 3 <select id="pB3"></select></label>
+      </div>
+      <div class="ai-box">
+        <div class="row" style="justify-content:space-between">
+          <b>🤖 AI 추천 일기 <span class="muted" id="aiMode"></span></b>
+          <div class="row">
+            <button type="button" class="primary sm" id="aiRun">AI로 다시 고르기</button>
+            <button type="button" class="sm" id="aiReset">자동 방식으로 되돌리기</button>
+          </div>
+        </div>
+        <div id="aiNow" class="muted"></div>
+      </div>
+    </section>
+    </div>
+
+    <section class="panel">
+      <h2>⚙️ 화면 설정 <span class="muted">과목과 수업에 맞게 문구를 바꾸면 수업 화면·학생 제출·인쇄물에 모두 반영돼요</span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <span class="muted">예시 불러오기</span>
+        <button type="button" class="sm" data-preset="history">세계사</button>
+        <button type="button" class="sm" data-preset="science">과학</button>
+        <button type="button" class="sm" data-preset="korean">국어</button>
+        <button type="button" class="sm" data-preset="blank">빈 양식</button>
+      </div>
+      <form id="cfgForm" class="cfg">
+        <label>과목명 <span class="muted">"{과목} 배움 일기", "{과목} 별명"처럼 화면 곳곳에 들어가요</span><input id="c-subject" maxlength="12" required></label>
+        <label>제목 앞 아이콘 <input id="c-icon" maxlength="4"></label>
+        <label class="wide">앱 제목 <input id="c-title" maxlength="60" required></label>
+        <label class="wide">부제 (배움 마무리) <input id="c-subtitle" maxlength="80"></label>
+        <label class="wide">부제 (배움 시작) <input id="c-introSubtitle" maxlength="80"></label>
+        <label class="wide">연상 단어 안내 (학생 배움 시작 제출 화면) <input id="c-introHelp" maxlength="80"></label>
+        <label class="wide">오른쪽 그림 칸 제목 <input id="c-side" maxlength="60"></label>
+        <label>별명 설명 (학생 제출 화면) <input id="c-nickHelp" maxlength="60"></label>
+        <label>별명 예시 <input id="c-nickEx" maxlength="30"></label>
+        <label class="wide">일기 설명 (학생 제출 화면) <input id="c-bodyHelp" maxlength="80"></label>
+        <label class="wide">명언 (배움 시작) <input id="c-introQuote" maxlength="80"></label>
+        <label>명언 출처 (배움 시작) <input id="c-introQuoteBy" maxlength="30"></label>
+        <label class="wide">아래 문장 (배움 시작) <input id="c-introClosing" maxlength="120"></label>
+        <label class="wide">명언 (배움 마무리) <input id="c-quote" maxlength="80"></label>
+        <label>명언 출처 (배움 마무리) <input id="c-quoteBy" maxlength="30"></label>
+        <label class="wide">아래 문장 (배움 마무리) <input id="c-closing" maxlength="120"></label>
+        <label class="wide">AI 추천 기준 <span class="muted">Gemini가 일기를 고를 때 보는 기준</span><textarea id="c-aiCriteria" maxlength="300" style="min-height:70px"></textarea></label>
+        <div class="row wide" style="justify-content:flex-end"><button type="submit" class="primary">설정 저장</button></div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>🖨️ 자료 인쇄</h2>
+      <div class="prints">
+        <button type="button" class="poster-btn" data-poster><b>🖼️ 수업 화면 게시용</b><span>학생 글 전부를 A4·B4 한 장에 맞춰 교실 게시</span></button>
+        <button type="button" class="intro-only" data-print="iall"><b>연상 단어 전체</b><span>학번순 표 · 숨긴 제출 제외</span></button>
+        <button type="button" class="intro-only" data-print="iboard"><b>연상 단어 정리 한 장</b><span>Top 3 · 빈도표 · 단어 모음</span></button>
+        <button type="button" class="close-only" data-print="all"><b>학생 일기 전체</b><span>학번순 표 · 숨긴 일기 제외</span></button>
+        <button type="button" class="close-only" data-print="picks"><b>오늘의 추천 모음</b><span>선생님 추천 · AI 추천 · 별명 명작</span></button>
+        <button type="button" class="close-only" data-print="board"><b>수업 정리 한 장</b><span>키워드 Top 5 · 별명 목록 · 명언</span></button>
+        <button type="button" class="close-only" data-print="cards"><b>학생별 카드</b><span>잘라서 나눠 주는 카드 형식</span></button>
+      </div>
+    </section>
+
+    <section class="panel close-only">
+      <h2>🗂️ 제출된 일기 <span class="muted" id="cnt"></span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <input id="q" type="search" placeholder="학번·이름·별명·내용 검색" aria-label="검색" style="flex:1">
+        <select id="fState" aria-label="표시 상태"><option value="">전체</option><option value="on">표시 중</option><option value="off">숨김</option></select>
+        <button type="button" class="danger" id="clearAll">배움 마무리 기록 전체 비우기</button>
+      </div>
+      <div id="clearBox"></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>학번</th><th>이름</th><th>별명</th><th>일기 내용</th><th>제출 시각</th><th>상태</th><th>관리</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </section>
+
+    <section class="panel">
+      <h2>🔗 수업 링크</h2>
+      <div class="links">
+        <div><b>학생 제출 (배움 시작)</b><code data-link="intro"></code><button type="button" class="sm" data-copy="intro">복사</button></div>
+        <div><b>학생 제출 (배움 마무리)</b><code data-link="write"></code><button type="button" class="sm" data-copy="write">복사</button></div>
+        <div><b>수업 화면</b><code data-link="class"></code><button type="button" class="sm" data-copy="class">복사</button></div>
+        <div><b>교사 관리 모드</b><code data-link="teacher"></code><button type="button" class="sm" data-copy="teacher">복사</button></div>
+      </div>
+      <p class="muted">수업용 화면 링크는 학생들에게 주셔도 되고 교실 공동 화면에 띄우기만 하셔도 됩니다. 단, 교사 관리 모드 링크는 학생에게 공유하지 마세요.</p>
+    </section>
+  </div>
+</div>
+
+<div class="modal" id="qrModal" hidden>
+  <div class="modal-card" role="dialog" aria-label="제출 QR 코드" style="max-width:340px;text-align:center;align-items:center">
+    <strong id="qrTitle">휴대폰으로 찍으면 일기 제출 화면이 열려요</strong>
+    <canvas id="qr"></canvas>
+    <code id="qrUrl"></code>
+    <button type="button" id="qrClose">닫기</button>
+  </div>
+</div>
+
+<div class="modal" id="iEditModal" hidden>
+  <div class="modal-card" role="dialog" aria-label="연상 단어 수정">
+    <strong style="font-size:16px">연상 단어 수정</strong>
+    <form id="iEditForm" style="display:flex;flex-direction:column;gap:12px">
+      <div class="row2"><label>학번 <input id="ieSid" required maxlength="6"></label><label>이름 <input id="ieName" required maxlength="20"></label></div>
+      <div class="row2"><label>단어 1 <input id="ieW1" required maxlength="20"></label><label>단어 2 <input id="ieW2" required maxlength="20"></label></div>
+      <div class="row" style="justify-content:flex-end"><button type="button" id="ieCancel">취소</button><button class="primary" type="submit">저장</button></div>
+    </form>
+  </div>
+</div>
+<div class="modal" id="editModal" hidden>
+  <div class="modal-card" role="dialog" aria-label="일기 수정">
+    <strong style="font-size:16px">일기 수정</strong>
+    <form id="editForm" style="display:flex;flex-direction:column;gap:12px">
+      <div class="row2"><label>학번 <input id="eSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6"></label><label>이름 <input id="eName" required maxlength="20"></label></div>
+      <label>별명 <input id="eNick" required maxlength="40"></label>
+      <label>내용 <textarea id="eBody" required maxlength="300"></textarea></label>
+      <div class="row" style="justify-content:flex-end"><button type="button" id="eCancel">취소</button><button class="primary" type="submit">저장</button></div>
+    </form>
+  </div>
+</div>
+<div class="modal" id="posterModal" hidden>
+  <div class="modal-card poster-card" role="dialog" aria-label="수업 화면 게시용 인쇄">
+    <div class="row" style="justify-content:space-between">
+      <strong>🖼️ 수업 화면 게시용 인쇄</strong>
+      <button type="button" id="posterClose">닫기</button>
+    </div>
+    <div class="poster-opts">
+      <div class="seg" role="group" aria-label="화면"><span>화면</span>
+        <button type="button" data-pv="lesson" data-val="intro">오늘 배움 시작</button><button type="button" data-pv="lesson" data-val="close">오늘 배움 마무리</button></div>
+      <div class="seg" role="group" aria-label="용지"><span>용지</span>
+        <button type="button" data-pv="paper" data-val="A4">A4</button><button type="button" data-pv="paper" data-val="B4">B4</button></div>
+      <div class="seg" role="group" aria-label="방향"><span>방향</span>
+        <button type="button" data-pv="orient" data-val="portrait">세로</button><button type="button" data-pv="orient" data-val="landscape">가로</button></div>
+      <button type="button" class="primary" id="posterPrint">인쇄하기</button>
+    </div>
+    <div class="muted" id="posterInfo"></div>
+    <div class="paper-stage" id="paperStage"><div class="paper-scale" id="paperScale"><div class="paper" id="paper"><div class="poster" id="poster"></div></div></div></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div id="printArea"><div class="sheet" id="sheet"></div></div>
+<div id="posterPrintArea"></div>
+
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
