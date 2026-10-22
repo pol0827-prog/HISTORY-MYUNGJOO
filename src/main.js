@@ -98,7 +98,7 @@ function showLesson(m) {
   lesson = m === 'intro' ? 'intro' : 'close';
   document.documentElement.dataset.lesson = lesson;
   document.querySelectorAll('button[data-lesson]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.lesson === lesson));
-  renderAll();
+  renderAll(); if (document.getElementById('qrFloat')) renderQrFloat();
 }
 document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = async () => {
   showLesson(b.dataset.lesson);
@@ -162,10 +162,69 @@ $('#btnQR').onclick = async () => {
   $('#qrModal').hidden = false;
 };
 $('#qrClose').onclick = () => ($('#qrModal').hidden = true);
+
+/* 오른쪽 위에 항상 떠 있는 제출 QR (수업 화면에서만) */
+let qfMini = false; try { qfMini = localStorage.getItem('qrMini') === '1'; } catch { /* 무시 */ }
+if (window.matchMedia('(max-width: 900px)').matches && localStorage.getItem?.('qrMini') == null) qfMini = true;
+let qfDrawn = '';
+async function renderQrFloat() {
+  const onClass = !$('#v-class').hidden && configured;
+  $('#qrFloat').hidden = !onClass;
+  document.documentElement.dataset.qr = onClass && !qfMini ? 'open' : '';
+  if (!onClass) return;
+  $('#qrFloat').classList.toggle('mini', qfMini);
+  $('#qfToggle').textContent = qfMini ? '📱 제출 QR 보기' : '접기';
+  $('#qfTitle').textContent = lesson === 'intro' ? '🚪 배움 시작 제출' : '🏁 배움 마무리 제출';
+  const url = linkFor(lesson === 'intro' ? 'intro' : 'write');
+  $('#qfCap').textContent = '휴대폰 카메라로 찍으세요';
+  if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }
+}
+$('#qfToggle').onclick = () => { qfMini = !qfMini; try { localStorage.setItem('qrMini', qfMini ? '1' : '0'); } catch { /* 무시 */ } renderQrFloat(); };
+$('#qfBig').onclick = () => $('#btnQR').click();
 document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.hidden = true; }));
 
 /* 지도: public/map.jpg 가 있으면 사진, 없으면 직접 그린 지도 */
-$('#mapImg').addEventListener('error', () => { $('#mapImg').remove(); $('#map').hidden = false; drawMap(); });
+let mapDrawn = false;
+function showDrawnMap() { $('#mapImg').hidden = true; $('#map').hidden = false; if (!mapDrawn) { drawMap(); mapDrawn = true; } }
+let photos = { map: '', emblem: '' };
+function applyPhotos() {
+  const img = $('#mapImg');
+  if (photos.map) { img.onerror = null; img.src = photos.map; img.hidden = false; $('#map').hidden = true; }
+  else { img.onerror = showDrawnMap; img.src = '/map.jpg'; img.hidden = false; $('#map').hidden = true; if (img.complete && !img.naturalWidth) showDrawnMap(); }
+  $('#emblemImg').hidden = !photos.emblem; if (photos.emblem) $('#emblemImg').src = photos.emblem; $('#emblemSvg').hidden = !!photos.emblem;
+  [['map', '#pvMap', '#pvMapNone'], ['emblem', '#pvEmblem', '#pvEmblemNone']].forEach(([k, im, none]) => {
+    $(im).hidden = !photos[k]; if (photos[k]) $(im).src = photos[k]; $(none).hidden = !!photos[k];
+  });
+}
+applyPhotos();
+/* 사진을 줄여서 JPEG 글자 데이터로 만들기 (Firestore 문서 한 개에 담기도록) */
+function shrinkPhoto(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      let w = im.naturalWidth, h = im.naturalHeight; const r = Math.min(1, maxSide / Math.max(w, h)); w = Math.round(w * r); h = Math.round(h * r);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let q = 0.85, out = c.toDataURL('image/jpeg', q);
+      while (out.length > 380000 && q > 0.4) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+      resolve(out);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('사진을 읽지 못했어요')); };
+    im.src = url;
+  });
+}
+document.querySelectorAll('[data-photo]').forEach((inp) => inp.addEventListener('change', async () => {
+  const f = inp.files?.[0]; inp.value = ''; if (!f) return;
+  if (!f.type.startsWith('image/')) return toast('사진 파일만 올릴 수 있어요');
+  try {
+    toast('사진을 줄이는 중이에요…');
+    const data = await shrinkPhoto(f, inp.dataset.photo === 'map' ? 1200 : 480);
+    await setDoc(doc(db, 'settings', 'photos'), { ...photos, [inp.dataset.photo]: data });
+    toast('사진을 바꿨어요. 수업 화면에 바로 반영돼요');
+  } catch (err) { console.error(err); toast('사진을 저장하지 못했어요. 더 작은 사진으로 다시 해 주세요'); }
+}));
+document.querySelectorAll('[data-photo-reset]').forEach((b) => (b.onclick = () => setDoc(doc(db, 'settings', 'photos'), { ...photos, [b.dataset.photoReset]: '' })
+  .then(() => toast('기본 그림으로 되돌렸어요')).catch(() => toast('저장하지 못했어요'))));
 function drawMap() {
   const c = $('#map'), g = c.getContext('2d'), W = c.width, H = c.height;
   const grd = g.createLinearGradient(0, 0, W, H); grd.addColorStop(0, '#e8dcb0'); grd.addColorStop(1, '#cdbd8a');
@@ -508,6 +567,10 @@ function route() {
   const V = ['class', 'intro', 'write', 'teacher'];
   const v = V.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'class';
   V.forEach((x) => ($('#v-' + x).hidden = x !== v));
+  document.querySelectorAll('.topbar .nav a').forEach((l) => (l.dataset.v === v ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
+  // 학생 제출 화면에서는 교사용 메뉴를 숨김
+  $('.topbar .nav').hidden = v === 'intro' || v === 'write';
+  renderQrFloat();
   window.scrollTo(0, 0);
 }
 applyCfg(); fillCfgForm(cfg); showLesson('close');
@@ -523,6 +586,7 @@ if (!configured) {
   onSnapshot(query(collection(db, 'intro'), where('hidden', '==', false)), (s) => { pubIntro = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
   onSnapshot(doc(db, 'settings', 'picks'), (d) => { const x = d.data() || {}; picks = { teacher: x.teacher ?? null, best: Array.isArray(x.best) ? x.best : [null, null, null] }; renderAll(); });
+  onSnapshot(doc(db, 'settings', 'photos'), (d) => { const x = d.data() || {}; photos = { map: x.map || '', emblem: x.emblem || '' }; applyPhotos(); });
   onSnapshot(doc(db, 'settings', 'ai'), (d) => { const x = d.data() || {}; aiSel = { id: x.id ?? null, reason: x.reason || '' }; renderAll(); });
   // 교사가 고른 화면(배움 시작/마무리)을 교실 화면이 따라감
   onSnapshot(doc(db, 'settings', 'state'), (d) => showLesson(d.data()?.lesson || 'close'));

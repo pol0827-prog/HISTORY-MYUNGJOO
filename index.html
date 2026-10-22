@@ -20,7 +20,9 @@
     <p>Vercel 환경 변수(또는 .env 파일)에 Firebase 값을 넣으면 앱이 동작합니다. README.md의 순서를 따라 주세요.</p>
   </section>
 </div>
-<div class="topbar"><div class="in"><div class="tools">
+<div class="topbar"><div class="in">
+  <nav class="nav" aria-label="화면 전환"><a href="#class" data-v="class">📺 수업 화면</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a></nav>
+  <div class="tools">
   <time class="clock" id="clock"></time>
   <button type="button" class="mode-btn" id="modeBtn" aria-label="밝게/어둡게 전환"></button>
 </div></div></div>
@@ -41,7 +43,7 @@
       <span class="chip">학생 수: <span id="cStu">0</span>명</span>
       <button type="button" id="btnRefresh">데이터 새로고침</button>
       <button type="button" id="btnQR" class="primary"><span class="close-only" data-t="{subject} 일기 제출 QR 코드"></span><span class="intro-only">연상 단어 제출 QR 코드</span></button>
-      <div class="emblem" aria-hidden="true"><svg width="40" height="34" viewBox="0 0 40 34"><g fill="#c9b98a"><rect x="4" y="2" width="32" height="4" rx="1"/><rect x="7" y="8" width="4" height="20"/><rect x="18" y="8" width="4" height="20"/><rect x="29" y="8" width="4" height="20"/><rect x="2" y="29" width="36" height="4" rx="1"/></g></svg></div>
+      <img class="emblem-img" id="emblemImg" alt="" hidden><div class="emblem" id="emblemSvg" aria-hidden="true"><svg width="40" height="34" viewBox="0 0 40 34"><g fill="#c9b98a"><rect x="4" y="2" width="32" height="4" rx="1"/><rect x="7" y="8" width="4" height="20"/><rect x="18" y="8" width="4" height="20"/><rect x="29" y="8" width="4" height="20"/><rect x="2" y="29" width="36" height="4" rx="1"/></g></svg></div>
     </div>
   </header>
   <div class="contents intro-only">
@@ -237,6 +239,28 @@
     </section>
 
     <section class="panel">
+      <h2>🖼️ 수업 화면 사진 <span class="muted">사진을 고르면 크기를 알맞게 줄여서 저장하고, 수업 화면에 바로 바뀌어요</span></h2>
+      <div class="photos">
+        <div class="photo-slot">
+          <b>오른쪽 그림 칸 (세계지도 자리)</b>
+          <div class="photo-prev tall"><img id="pvMap" alt="" hidden><span id="pvMapNone" class="muted">기본 지도 그림</span></div>
+          <div class="row">
+            <label class="btn sm file-btn">사진 고르기<input type="file" accept="image/*" data-photo="map" hidden></label>
+            <button type="button" class="sm" data-photo-reset="map">기본 그림으로</button>
+          </div>
+        </div>
+        <div class="photo-slot">
+          <b>제목 옆 작은 사진</b>
+          <div class="photo-prev wide"><img id="pvEmblem" alt="" hidden><span id="pvEmblemNone" class="muted">기본 기둥 그림</span></div>
+          <div class="row">
+            <label class="btn sm file-btn">사진 고르기<input type="file" accept="image/*" data-photo="emblem" hidden></label>
+            <button type="button" class="sm" data-photo-reset="emblem">기본 그림으로</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>🖨️ 자료 인쇄</h2>
       <div class="prints">
         <button type="button" class="poster-btn" data-poster><b>🖼️ 수업 화면 게시용</b><span>학생 글 전부를 A4·B4 한 장에 맞춰 교실 게시</span></button>
@@ -325,6 +349,12 @@
     <div class="paper-stage" id="paperStage"><div class="paper-scale" id="paperScale"><div class="paper" id="paper"><div class="poster" id="poster"></div></div></div></div>
   </div>
 </div>
+<aside class="qr-float" id="qrFloat" hidden aria-label="학생 제출 QR 코드">
+  <div class="qf-head"><b id="qfTitle">제출 QR</b><button type="button" class="sm" id="qfToggle">접기</button></div>
+  <canvas id="qfCanvas"></canvas>
+  <div class="qf-cap" id="qfCap"></div>
+  <button type="button" class="sm" id="qfBig">크게 보기</button>
+</aside>
 <div class="toast" id="toast" hidden></div>
 <div id="printArea"><div class="sheet" id="sheet"></div></div>
 <div id="posterPrintArea"></div>

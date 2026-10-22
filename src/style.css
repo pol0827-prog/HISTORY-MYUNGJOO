@@ -241,3 +241,34 @@ body{margin:0}
   #printArea .sheet{max-width:none;padding:0;margin:0}
   .sheet tr{break-inside:avoid}
 }
+
+/* 오른쪽 위에 항상 떠 있는 제출 QR */
+.qr-float{position:fixed;top:calc(env(safe-area-inset-top,0px) + 62px);right:max(16px,env(safe-area-inset-right,0px));z-index:12;width:196px;
+  background:var(--panel);border:1.5px solid var(--accent);border-radius:12px;padding:10px;box-shadow:0 8px 24px rgb(0 0 0 / .35);
+  display:flex;flex-direction:column;align-items:center;gap:6px}
+.qr-float .qf-head{display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%}
+.qr-float .qf-head b{font-size:13px;color:var(--accent)}
+.qr-float canvas{background:#fff;border-radius:6px;padding:6px;width:172px!important;height:172px!important}
+.qr-float .qf-cap{font-size:12px;color:var(--muted)}
+.qr-float.mini{width:auto;padding:6px}
+.qr-float.mini canvas,.qr-float.mini .qf-cap,.qr-float.mini #qfBig,.qr-float.mini .qf-head b{display:none}
+.qr-float.mini #qfToggle{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+/* QR이 펼쳐져 있으면 넓은 화면에서 수업 화면 내용이 QR 밑으로 들어가지 않게 오른쪽을 비움 */
+@media (min-width:901px){:root[data-qr="open"] #v-class{padding-right:calc(max(16px,env(safe-area-inset-right,0px)) + 212px)}}
+@media print{.qr-float{display:none!important}}
+
+/* 수업 화면 사진 바꾸기 */
+.emblem-img{width:96px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.photo-slot{display:flex;flex-direction:column;gap:8px;background:var(--card);border-radius:8px;padding:12px}
+.photo-prev{border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;overflow:hidden;background:var(--panel)}
+.photo-prev.tall{height:180px}.photo-prev.wide{height:90px}
+.photo-prev img{width:100%;height:100%;object-fit:cover}
+.file-btn{cursor:pointer}
+@media (max-width:640px){.photos{grid-template-columns:1fr}}
+
+/* 위쪽 막대: 수업 화면 ↔ 교사 관리 모드 */
+.topbar .nav{display:flex;gap:4px;flex-wrap:wrap}
+.topbar .nav a{color:var(--muted);text-decoration:none;padding:5px 12px;border-radius:999px;font-weight:600;font-size:13px;border:1px solid transparent}
+.topbar .nav a:hover{color:var(--fg)}
+.topbar .nav a[aria-current="page"]{color:var(--accent);border-color:var(--accent)}
