@@ -5,18 +5,17 @@
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 
-// 교사 로그인 확인: Firebase 로그인 토큰으로 이메일을 조회해 교사 목록과 비교
-async function teacherEmail(idToken) {
-  const key = process.env.VITE_FIREBASE_API_KEY;
-  const allowed = (process.env.VITE_TEACHER_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-  if (!idToken || !key) return null;
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(key)}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }),
-  });
-  if (!r.ok) return null;
-  const u = (await r.json()).users?.[0];
-  const email = String(u?.email || '').toLowerCase();
-  return u?.emailVerified && allowed.includes(email) ? email : null;
+// 교사 확인: 비밀번호로 들어온 기기만 Firestore의 sessions/{내 uid} 문서를 읽을 수 있음
+// (보안 규칙이 본인만 읽게 막아 두었으므로, 읽기에 성공하면 교사로 인정)
+async function isTeacher(idToken) {
+  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || 'history-myungjoo';
+  if (!idToken || !projectId) return false;
+  let uid = '';
+  try { uid = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString()).user_id || ''; } catch { return false; }
+  if (!uid) return false;
+  const r = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/sessions/${encodeURIComponent(uid)}`,
+    { headers: { Authorization: `Bearer ${idToken}` } });
+  return r.ok;
 }
 
 export default async function handler(req, res) {
@@ -24,7 +23,7 @@ export default async function handler(req, res) {
   if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았어요' });
 
   const token = String(req.headers.authorization || '').replace(/^Bearer /, '');
-  if (!(await teacherEmail(token))) return res.status(401).json({ error: '교사 로그인이 필요해요' });
+  if (!(await isTeacher(token))) return res.status(401).json({ error: '교사 관리 모드에 다시 들어와 주세요' });
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
   // 번호·별명은 받지 않고 일기 내용만 받습니다 (학생 개인정보 최소화)

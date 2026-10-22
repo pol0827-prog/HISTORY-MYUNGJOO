@@ -4,13 +4,13 @@ rules_version = '2';
 //  Firebase 콘솔 > Firestore Database > 규칙 탭에 전체를 붙여넣고 [게시]
 //
 //  ▶ 교사 관리 모드 비밀번호는 아래 TEACHER_PIN 한 곳에만 있습니다.
-//    바꾸려면 '6957'을 고쳐서 다시 [게시]하세요. (앱 코드는 고칠 필요 없음)
+//    바꾸려면 아래 '여기에-비밀번호'를 실제 비밀번호로 고쳐서 [게시]하세요. (앱 코드는 고칠 필요 없음)
 //  ▶ 비밀번호가 들어 있으니 GitHub 저장소는 Private(비공개)로 만드세요.
 // ─────────────────────────────────────────────────────────────
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function TEACHER_PIN() { return '6957'; }
+    function TEACHER_PIN() { return '여기에-비밀번호'; }  // 공개 저장소라 실제 비밀번호는 Firebase 콘솔 규칙 탭에만 넣으세요
 
     // 비밀번호를 맞힌 기기(익명 로그인)만 교사로 인정
     function isTeacher() {
