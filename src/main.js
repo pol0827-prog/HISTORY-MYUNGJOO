@@ -154,32 +154,38 @@ $('#btnRefresh').onclick = async () => {
     pubEntries = a.docs.map(toEntry); pubIntro = b.docs.map(toEntry); renderAll(); toast('최신 데이터를 불러왔어요');
   } catch { toast('불러오지 못했어요. 인터넷 연결을 확인해 주세요'); }
 };
-$('#btnQR').onclick = async () => {
-  const url = linkFor(lesson === 'intro' ? 'intro' : 'write');
+async function showQr(hash, title) {
+  const url = linkFor(hash);
   await QRCode.toCanvas($('#qr'), url, { width: 240, margin: 1 });
-  $('#qrUrl').textContent = url;
-  $('#qrTitle').textContent = lesson === 'intro' ? '휴대폰으로 찍으면 연상 단어 제출 화면이 열려요' : '휴대폰으로 찍으면 일기 제출 화면이 열려요';
-  $('#qrModal').hidden = false;
-};
+  $('#qrUrl').textContent = url; $('#qrTitle').textContent = title; $('#qrModal').hidden = false;
+}
+$('#btnQR').onclick = () => showQr(lesson === 'intro' ? 'intro' : 'write',
+  lesson === 'intro' ? '휴대폰으로 찍으면 연상 단어 제출 화면이 열려요' : '휴대폰으로 찍으면 일기 제출 화면이 열려요');
+// 위쪽 막대의 QR: 학생 휴대폰으로 수업 화면을 볼 때만 가끔 씀
+$('#navQr').onclick = () => showQr('class', '휴대폰으로 찍으면 수업 화면이 열려요');
+// 위쪽 막대가 두 줄이 되어도 QR 카드가 그 아래에 오도록 높이를 따라감
+new ResizeObserver(([e]) => document.documentElement.style.setProperty('--tb-h', Math.ceil(e.target.getBoundingClientRect().height) + 'px')).observe($('.topbar'));
 $('#qrClose').onclick = () => ($('#qrModal').hidden = true);
 
 /* 오른쪽 위에 항상 떠 있는 제출 QR (수업 화면에서만) */
-let qfMini = false; try { qfMini = localStorage.getItem('qrMini') === '1'; } catch { /* 무시 */ }
-if (window.matchMedia('(max-width: 900px)').matches && localStorage.getItem?.('qrMini') == null) qfMini = true;
+// 처음에는 항상 펼친 상태로 시작
+let qfMini = false;
 let qfDrawn = '';
 async function renderQrFloat() {
   const onClass = !$('#v-class').hidden && configured;
-  $('#qrFloat').hidden = !onClass;
+  // 접으면 QR 카드를 아예 치우고, 위쪽 막대의 작은 버튼으로만 남겨서 보드판이 자리를 다 쓰게 함
+  $('#qrFloat').hidden = !onClass || qfMini;
+  $('#qfOpen').hidden = !onClass || !qfMini;
   document.documentElement.dataset.qr = onClass && !qfMini ? 'open' : '';
-  if (!onClass) return;
-  $('#qrFloat').classList.toggle('mini', qfMini);
-  $('#qfToggle').textContent = qfMini ? '📱 제출 QR 보기' : '접기';
+  if (!onClass || qfMini) return;
+  $('#qfToggle').textContent = '접기';
   $('#qfTitle').textContent = lesson === 'intro' ? '🚪 배움 시작 제출' : '🏁 배움 마무리 제출';
   const url = linkFor(lesson === 'intro' ? 'intro' : 'write');
   $('#qfCap').textContent = '휴대폰 카메라로 찍으세요';
   if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }
 }
-$('#qfToggle').onclick = () => { qfMini = !qfMini; try { localStorage.setItem('qrMini', qfMini ? '1' : '0'); } catch { /* 무시 */ } renderQrFloat(); };
+$('#qfToggle').onclick = () => { qfMini = true; renderQrFloat(); };
+$('#qfOpen').onclick = () => { qfMini = false; renderQrFloat(); };
 $('#qfBig').onclick = () => $('#btnQR').click();
 document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.hidden = true; }));
 

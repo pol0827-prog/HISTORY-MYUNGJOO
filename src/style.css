@@ -286,3 +286,18 @@ body{margin:0}
 .arch-tbl{min-width:640px}
 .arch-tbl td.memo{color:var(--muted);font-size:12px}
 .cls-chip{background:var(--accent);color:var(--accent-ink)}
+
+/* QR: 펼치면 오른쪽 위 자리만 쓰고, 접으면 보드판이 화면 전체를 씀 */
+.qr-float{top:calc(env(safe-area-inset-top,0px) + 58px)}
+:root[data-qr="open"] #v-class{padding-right:calc(max(16px,env(safe-area-inset-right,0px)) + 208px)}
+@media (max-width:700px){
+  .qr-float{width:150px;padding:8px}
+  .qr-float canvas{width:126px!important;height:126px!important}
+  :root[data-qr="open"] #v-class{padding-right:calc(max(16px,env(safe-area-inset-right,0px)) + 160px)}
+}
+.qf-open{background:var(--accent)!important;color:var(--accent-ink)!important;font-weight:700}
+
+.qr-float{top:calc(env(safe-area-inset-top,0px) + var(--tb-h,49px) + 10px)}
+.topbar .nav{align-items:center}
+.nav-qr{padding:3px 9px;font-size:12px;font-weight:700;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);margin-right:6px}
+.nav-qr:hover{color:var(--fg);border-color:var(--accent)}
