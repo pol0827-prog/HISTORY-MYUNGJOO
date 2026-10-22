@@ -178,7 +178,7 @@ async function renderQrFloat() {
   $('#qfOpen').hidden = !onClass || !qfMini;
   document.documentElement.dataset.qr = onClass && !qfMini ? 'open' : '';
   if (!onClass || qfMini) return;
-  $('#qfToggle').textContent = '접기';
+  $('#qfToggle').textContent = 'QR 접기';
   $('#qfTitle').textContent = lesson === 'intro' ? '🚪 배움 시작 제출' : '🏁 배움 마무리 제출';
   const url = linkFor(lesson === 'intro' ? 'intro' : 'write');
   $('#qfCap').textContent = '휴대폰 카메라로 찍으세요';
