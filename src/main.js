@@ -18,6 +18,11 @@ const hm = (d) => (d ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()
 const linkFor = (v) => `${location.origin}${location.pathname}#${v}`;
 const ts = (e) => e.at?.getTime?.() ?? 0;
 const label = (e) => `[${e.sid}] ${e.nick}`;
+/* 반 구분: 문서 ID 앞에 반 이름을 붙여 저장 ("2학년%201반~랜덤ID"). 반 없는 예전 기록은 '' */
+const clsPrefix = (c) => (c ? encodeURIComponent(c) + '~' : '');
+const clsOf = (id) => { const i = String(id).indexOf('~'); if (i < 0) return ''; try { return decodeURIComponent(id.slice(0, i)); } catch { return ''; } };
+const rawId = (id) => String(id).slice(String(id).indexOf('~') + 1);
+const newId = (col, c) => clsPrefix(c) + doc(collection(db, col)).id;
 function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => (t.hidden = true), 2400); }
 function checkStudent(sid, name) {
   if (!sid) return '학번을 적어 주세요.';
@@ -35,14 +40,16 @@ let aiSel = { id: null, reason: '' };
 let cfg = { ...PRESETS.history };
 let lesson = 'close';
 
-const toEntry = (d) => { const x = d.data({ serverTimestamps: 'estimate' }); return { id: d.id, ...x, hidden: !!x.hidden, at: x.createdAt?.toDate?.() ?? null }; };
+const toEntry = (d) => { const x = d.data({ serverTimestamps: 'estimate' }); return { id: d.id, cls: clsOf(d.id), ...x, hidden: !!x.hidden, at: x.createdAt?.toDate?.() ?? null }; };
 // 교사는 전체(이름 포함), 그 외에는 숨기지 않은 글만
-const entries = () => (isTeacher ? allEntries.map((e) => ({ ...e, name: names.get(e.id)?.name || '' })) : pubEntries);
+// 지금 수업하는 반의 기록만 (반마다 따로)
+const inCls = (e) => e.cls === className;
+const entries = () => (isTeacher ? allEntries.filter(inCls).map((e) => ({ ...e, name: names.get(e.id)?.name || '' })) : pubEntries.filter(inCls));
 const visible = () => entries().filter((e) => !e.hidden);
 const byId = (id) => entries().find((e) => e.id === id);
 // 배움 시작은 원본처럼 학생당 1건: 같은 학번은 가장 최근 제출만
 function latestPerSid(list) { const m = new Map(); list.forEach((e) => { const o = m.get(e.sid); if (!o || ts(e) >= ts(o)) m.set(e.sid, e); }); return [...m.values()]; }
-const introRecords = () => (isTeacher ? allIntro : pubIntro);
+const introRecords = () => (isTeacher ? allIntro : pubIntro).filter(inCls);
 const intro = () => latestPerSid(introRecords());
 const iVisible = () => intro().filter((e) => !e.hidden);
 
@@ -159,8 +166,10 @@ async function showQr(hash, title) {
   await QRCode.toCanvas($('#qr'), url, { width: 240, margin: 1 });
   $('#qrUrl').textContent = url; $('#qrTitle').textContent = title; $('#qrModal').hidden = false;
 }
-$('#btnQR').onclick = () => showQr(lesson === 'intro' ? 'intro' : 'write',
-  lesson === 'intro' ? '휴대폰으로 찍으면 연상 단어 제출 화면이 열려요' : '휴대폰으로 찍으면 일기 제출 화면이 열려요');
+// 학생 제출 링크: 반 이름이 들어가서 반마다 QR이 달라짐
+const submitHash = (c = className, l = lesson) => (l === 'intro' ? 'intro' : 'write') + (c ? `?c=${encodeURIComponent(c)}` : '');
+const qrTitleFor = (c = className, l = lesson) => `${c ? `[${c}] ` : ''}휴대폰으로 찍으면 ${l === 'intro' ? '연상 단어' : '일기'} 제출 화면이 열려요`;
+$('#btnQR').onclick = () => showQr(submitHash(), qrTitleFor());
 // 위쪽 막대의 QR: 학생 휴대폰으로 수업 화면을 볼 때만 가끔 씀
 $('#navQr').onclick = () => showQr('class', '휴대폰으로 찍으면 수업 화면이 열려요');
 // 위쪽 막대가 두 줄이 되어도 QR 카드가 그 아래에 오도록 높이를 따라감
@@ -180,8 +189,8 @@ async function renderQrFloat() {
   if (!onClass || qfMini) return;
   $('#qfToggle').textContent = 'QR 접기';
   $('#qfTitle').textContent = lesson === 'intro' ? '🚪 배움 시작 제출' : '🏁 배움 마무리 제출';
-  const url = linkFor(lesson === 'intro' ? 'intro' : 'write');
-  $('#qfCap').textContent = '휴대폰 카메라로 찍으세요';
+  const url = linkFor(submitHash());
+  $('#qfCap').textContent = className ? `${className} 전용 · 휴대폰 카메라로 찍으세요` : '휴대폰 카메라로 찍으세요';
   if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }
 }
 $('#qfToggle').onclick = () => { qfMini = true; renderQrFloat(); };
@@ -253,6 +262,13 @@ function drawMap() {
 }
 
 /* ================= 학생 제출 ================= */
+// QR 주소의 반(?c=)으로 제출. 반이 없는 주소면 지금 수업하는 반으로
+let urlCls = null;
+const formCls = () => (urlCls ?? className);
+function renderFormCls() {
+  const c = formCls();
+  document.querySelectorAll('[data-formcls]').forEach((el) => { el.hidden = !c; el.textContent = `🏫 ${c} 제출 화면이에요`; });
+}
 $('#diaryForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const sid = $('#wSid').value.trim(), name = $('#wName').value.trim(), nick = $('#wNick').value.trim(), body = $('#wBody').value.trim();
@@ -261,7 +277,7 @@ $('#diaryForm').addEventListener('submit', async (e) => {
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#wErr').textContent = '';
   try {
     // 수업 화면용 일기와, 교사만 보는 이름을 따로 저장
-    const ref = doc(collection(db, 'entries')); const batch = writeBatch(db);
+    const ref = doc(db, 'entries', newId('entries', formCls())); const batch = writeBatch(db);
     batch.set(ref, { sid, nick, body, hidden: false, createdAt: serverTimestamp() });
     batch.set(doc(db, 'entryNames', ref.id), { sid, name });
     await batch.commit();
@@ -278,7 +294,7 @@ $('#introForm').addEventListener('submit', async (e) => {
   if (bad) { $('#iErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#iErr').textContent = '';
   try {
-    await addDoc(collection(db, 'intro'), { sid, name, w1, w2, hidden: false, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'intro', newId('intro', formCls())), { sid, name, w1, w2, hidden: false, createdAt: serverTimestamp() });
     e.target.reset(); e.target.hidden = true; $('#iDone').hidden = false;
   } catch (err) { console.error(err); $('#iErr').textContent = '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
@@ -321,7 +337,17 @@ function renderTeacherIntro() {
 }
 $('#q').oninput = renderTeacherClose; $('#fState').onchange = renderTeacherClose; $('#iq').oninput = renderTeacherIntro;
 
-const savePicks = (p) => setDoc(doc(db, 'settings', 'picks'), p).then(() => toast('수업 화면 추천을 바꿨어요')).catch(() => toast('저장하지 못했어요'));
+const clsKey = (c = className) => c || '_';
+let picksDoc = {}, aiDoc = {};
+function syncPicks() {
+  const x = picksDoc.byCls?.[clsKey()] || (className ? {} : picksDoc);
+  picks = { teacher: x.teacher ?? null, best: Array.isArray(x.best) ? x.best : [null, null, null] };
+  const y = aiDoc.byCls?.[clsKey()] || (className ? {} : aiDoc);
+  aiSel = { id: y.id ?? null, reason: y.reason || '' };
+}
+const setPicksFor = (c, p) => setDoc(doc(db, 'settings', 'picks'), { byCls: { [clsKey(c)]: p } }, { merge: true });
+const setAiFor = (c, a) => setDoc(doc(db, 'settings', 'ai'), { byCls: { [clsKey(c)]: a } }, { merge: true });
+const savePicks = (p) => setPicksFor(className, p).then(() => toast('수업 화면 추천을 바꿨어요')).catch(() => toast('저장하지 못했어요'));
 $('#pTeacher').onchange = (e) => savePicks({ ...picks, teacher: e.target.value || null });
 ['#pB1', '#pB2', '#pB3'].forEach((s, i) => ($(s).onchange = (e) => { const best = [...picks.best]; best[i] = e.target.value || null; savePicks({ ...picks, best }); }));
 
@@ -337,12 +363,12 @@ $('#aiRun').onclick = async () => {
     });
     const out = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(out.error || `오류 ${r.status}`);
-    await setDoc(doc(db, 'settings', 'ai'), { id: out.id, reason: out.reason || '' });
+    await setAiFor(className, { id: out.id, reason: out.reason || '' });
     toast('AI 추천 일기를 골랐어요');
   } catch (err) { console.error(err); toast(`AI 추천을 받지 못했어요: ${err.message}`); }
   finally { btn.disabled = false; btn.textContent = 'AI로 다시 고르기'; }
 };
-$('#aiReset').onclick = () => setDoc(doc(db, 'settings', 'ai'), { id: null, reason: '' }).then(() => toast('키워드 자동 선정으로 되돌렸어요')).catch(() => toast('저장하지 못했어요'));
+$('#aiReset').onclick = () => setAiFor(className, { id: null, reason: '' }).then(() => toast('키워드 자동 선정으로 되돌렸어요')).catch(() => toast('저장하지 못했어요'));
 
 const confirmRow = (tr) => (tr.querySelector('.act').innerHTML = '<div class="row"><span class="muted">삭제할까요?</span><button type="button" class="sm danger" data-a="delok">삭제</button><button type="button" class="sm" data-a="cancel">취소</button></div>');
 let editing = null, iEditing = null;
@@ -390,11 +416,12 @@ $('#iEditForm').addEventListener('submit', async (e) => {
 });
 $('#ieCancel').onclick = () => ($('#iEditModal').hidden = true);
 
-async function deleteAll(col, alsoCol) {
-  const s = await getDocs(collection(db, col));
-  for (let i = 0; i < s.docs.length; i += 200) {
+// 한 반의 기록만 지움 (다른 반 기록은 그대로)
+async function deleteAll(col, alsoCol, c = className) {
+  const docs = (await getDocs(collection(db, col))).docs.filter((d) => clsOf(d.id) === c);
+  for (let i = 0; i < docs.length; i += 200) {
     const bt = writeBatch(db);
-    s.docs.slice(i, i + 200).forEach((d) => { bt.delete(d.ref); if (alsoCol) bt.delete(doc(db, alsoCol, d.id)); });
+    docs.slice(i, i + 200).forEach((d) => { bt.delete(d.ref); if (alsoCol) bt.delete(doc(db, alsoCol, d.id)); });
     await bt.commit();
   }
 }
@@ -404,14 +431,14 @@ function confirmBox(box, text, onOk, okLabel = '지우기') {
   no.onclick = () => (box.innerHTML = '');
   ok.onclick = async () => { ok.disabled = true; try { await onOk(); box.innerHTML = ''; } catch (err) { console.error(err); toast('지우지 못했어요'); ok.disabled = false; } };
 }
-$('#clearAll').onclick = () => confirmBox($('#clearBox'), `일기 ${allEntries.length}건을 지울까요? 지우기 전에 반별 수업 기록으로 자동 저장해 두니, 나중에 다시 불러올 수 있어요.`, async () => {
+$('#clearAll').onclick = () => confirmBox($('#clearBox'), `${className ? esc(className) + ' ' : ''}일기 ${entries().length}건을 지울까요? 다른 반 기록은 그대로 남아요. 지우기 전에 반별 수업 기록으로 자동 저장해 두니, 나중에 다시 불러올 수 있어요.`, async () => {
   await saveArchive('비우기 전 자동 저장');
   await deleteAll('entries', 'entryNames');
-  await setDoc(doc(db, 'settings', 'picks'), { teacher: null, best: [null, null, null] });
-  await setDoc(doc(db, 'settings', 'ai'), { id: null, reason: '' });
+  await setPicksFor(className, { teacher: null, best: [null, null, null] });
+  await setAiFor(className, { id: null, reason: '' });
   toast('새 수업을 시작했어요');
 });
-$('#iClearAll').onclick = () => confirmBox($('#iClearBox'), `연상 단어 ${allIntro.length}건을 지울까요? 지우기 전에 반별 수업 기록으로 자동 저장해 두니, 나중에 다시 불러올 수 있어요.`, async () => {
+$('#iClearAll').onclick = () => confirmBox($('#iClearBox'), `${className ? esc(className) + ' ' : ''}연상 단어 ${introRecords().length}건을 지울까요? 다른 반 기록은 그대로 남아요. 지우기 전에 반별 수업 기록으로 자동 저장해 두니, 나중에 다시 불러올 수 있어요.`, async () => {
   await saveArchive('비우기 전 자동 저장');
   await deleteAll('intro'); toast('배움 시작 기록을 비웠어요');
 });
@@ -440,7 +467,7 @@ $('#clsSelect').onchange = (e) => {
 function clsRow(c = { name: '', size: '' }) {
   return `<div class="cls-row"><input class="cn" maxlength="20" placeholder="예: 2학년 1반" value="${esc(c.name)}" aria-label="반 이름">
     <label class="inline-num">재적 <input class="cs" type="number" min="1" max="60" inputmode="numeric" value="${c.size || ''}" aria-label="재적수">명</label>
-    <button type="button" class="sm danger rm">삭제</button></div>`;
+    <button type="button" class="sm qr" title="이 반 학생 제출 QR">QR</button><button type="button" class="sm danger rm">삭제</button></div>`;
 }
 let clsEditing = false;
 function renderClassEditor() {
@@ -448,7 +475,9 @@ function renderClassEditor() {
   $('#clsList').innerHTML = (classList.length ? classList : [{ name: '', size: '' }]).map(clsRow).join('');
 }
 $('#clsList').addEventListener('input', () => (clsEditing = true));
-$('#clsList').onclick = (e) => { if (e.target.closest('.rm')) { e.target.closest('.cls-row').remove(); clsEditing = true; } };
+$('#clsList').onclick = (e) => {
+  if (e.target.closest('.qr')) { const c = e.target.closest('.cls-row').querySelector('.cn').value.trim(); if (!c) return toast('반 이름을 먼저 적어 주세요'); return showQr(submitHash(c), qrTitleFor(c)); }
+  if (e.target.closest('.rm')) { e.target.closest('.cls-row').remove(); clsEditing = true; } };
 $('#clsAdd').onclick = () => { $('#clsList').insertAdjacentHTML('beforeend', clsRow()); clsEditing = true; $('#clsList .cls-row:last-child .cn').focus(); };
 $('#clsListSave').onclick = async () => {
   const list = [...document.querySelectorAll('#clsList .cls-row')].map((r) => ({ name: r.querySelector('.cn').value.trim(), size: Math.max(0, Math.trunc(Number(r.querySelector('.cs').value) || 0)) }))
@@ -464,6 +493,7 @@ const fmtWhen = (t) => { const d = t?.toDate?.(); if (!d) return '-'; return `${
 const ms = (e) => e.at?.getTime?.() ?? Date.now();
 // 지금 기록 전체를 한 문서로 보관 (사진·화면 설정은 그대로 두고 수업 기록만)
 async function saveArchive(memo = '') {
+  const allEntries = entries(), allIntro = introRecords();   // 지금 반 기록만
   if (!allEntries.length && !allIntro.length) return null;
   const ref = await addDoc(collection(db, 'archives'), {
     className: className || '반 이름 없음', memo, savedAt: serverTimestamp(),
@@ -478,19 +508,22 @@ async function commitInChunks(ops) {
   for (let i = 0; i < ops.length; i += 400) { const bt = writeBatch(db); ops.slice(i, i + 400).forEach((f) => f(bt)); await bt.commit(); }
 }
 async function restoreArchive(a) {
-  // 지금 기록이 있으면 먼저 자동 저장해서 아무것도 잃지 않게
+  // 저장한 반으로 바꾼 뒤, 그 반의 지금 기록만 먼저 자동 저장하고 바꿈 (다른 반 기록은 그대로)
+  const c = a.className === '반 이름 없음' ? '' : a.className;
+  if (c !== className) { className = c; await setDoc(doc(db, 'settings', 'state'), { className: c }, { merge: true }); }
   await saveArchive('불러오기 전 자동 저장');
-  await deleteAll('entries', 'entryNames'); await deleteAll('intro');
+  await deleteAll('entries', 'entryNames', c); await deleteAll('intro', null, c);
+  const id = (x) => clsPrefix(c) + rawId(x), map = (x) => (x ? id(x) : x);
   const ops = [];
   (a.entries || []).forEach((e) => {
-    ops.push((bt) => bt.set(doc(db, 'entries', e.id), { sid: e.sid, nick: e.nick, body: e.body, hidden: !!e.hidden, createdAt: Timestamp.fromMillis(e.at) }));
-    if (e.name) ops.push((bt) => bt.set(doc(db, 'entryNames', e.id), { sid: e.sid, name: e.name }));
+    ops.push((bt) => bt.set(doc(db, 'entries', id(e.id)), { sid: e.sid, nick: e.nick, body: e.body, hidden: !!e.hidden, createdAt: Timestamp.fromMillis(e.at) }));
+    if (e.name) ops.push((bt) => bt.set(doc(db, 'entryNames', id(e.id)), { sid: e.sid, name: e.name }));
   });
-  (a.intro || []).forEach((e) => ops.push((bt) => bt.set(doc(db, 'intro', e.id), { sid: e.sid, name: e.name, w1: e.w1, w2: e.w2, hidden: !!e.hidden, createdAt: Timestamp.fromMillis(e.at) })));
+  (a.intro || []).forEach((e) => ops.push((bt) => bt.set(doc(db, 'intro', id(e.id)), { sid: e.sid, name: e.name, w1: e.w1, w2: e.w2, hidden: !!e.hidden, createdAt: Timestamp.fromMillis(e.at) })));
   await commitInChunks(ops);
-  await setDoc(doc(db, 'settings', 'picks'), a.picks || { teacher: null, best: [null, null, null] });
-  await setDoc(doc(db, 'settings', 'ai'), a.ai || { id: null, reason: '' });
-  await setDoc(doc(db, 'settings', 'state'), { className: a.className === '반 이름 없음' ? '' : a.className }, { merge: true });
+  const p = a.picks || {};
+  await setPicksFor(c, { teacher: map(p.teacher ?? null), best: (Array.isArray(p.best) ? p.best : [null, null, null]).map(map) });
+  await setAiFor(c, { id: map(a.ai?.id ?? null), reason: a.ai?.reason || '' });
 }
 function renderArchives() {
   $('#archRows').innerHTML = archives.length ? archives.map((a) => `<tr data-id="${a.id}">
@@ -518,7 +551,7 @@ $('#archRows').onclick = (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const a = archives.find((x) => x.id === b.closest('tr').dataset.id); if (!a) return;
   const when = fmtWhen(a.savedAt);
-  if (b.dataset.a === 'load') confirmBox($('#archBox'), `${esc(a.className)} (${when}) 기록을 불러올까요? 지금 화면의 기록은 먼저 자동 저장한 뒤 바뀌어요.`, async () => { await restoreArchive(a); toast(`${a.className} 기록을 불러왔어요`); }, '불러오기');
+  if (b.dataset.a === 'load') confirmBox($('#archBox'), `${esc(a.className)} (${when}) 기록을 불러올까요? 지금 수업하는 반이 ${esc(a.className)}(으)로 바뀌고, 그 반의 지금 기록은 먼저 자동 저장돼요. 다른 반 기록은 그대로예요.`, async () => { await restoreArchive(a); toast(`${a.className} 기록을 불러왔어요`); }, '불러오기');
   if (b.dataset.a === 'del') confirmBox($('#archBox'), `${esc(a.className)} (${when}) 저장 기록을 삭제할까요? 삭제한 기록은 되돌릴 수 없어요.`, async () => { await deleteDoc(doc(db, 'archives', a.id)); toast('저장 기록을 삭제했어요'); }, '삭제');
 };
 
@@ -682,7 +715,10 @@ $('#modeBtn').onclick = () => setMode(document.documentElement.dataset.mode === 
 /* ================= 화면 전환 · 시작 ================= */
 function route() {
   const V = ['class', 'intro', 'write', 'teacher'];
-  const v = V.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'class';
+  const [h, qs] = location.hash.slice(1).split('?');
+  const v = V.includes(h) ? h : 'class';
+  urlCls = (v === 'intro' || v === 'write') ? new URLSearchParams(qs || '').get('c') : null;
+  renderFormCls();
   V.forEach((x) => ($('#v-' + x).hidden = x !== v));
   document.querySelectorAll('.topbar .nav a').forEach((l) => (l.dataset.v === v ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
   // QR로 바로 들어온 학생에게는 메뉴를 숨기고, 위쪽 메뉴를 눌러 미리보기로 들어온 경우에는 보여 줌
@@ -704,15 +740,15 @@ if (!configured) {
   onSnapshot(query(collection(db, 'entries'), where('hidden', '==', false)), (s) => { pubEntries = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(query(collection(db, 'intro'), where('hidden', '==', false)), (s) => { pubIntro = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
-  onSnapshot(doc(db, 'settings', 'picks'), (d) => { const x = d.data() || {}; picks = { teacher: x.teacher ?? null, best: Array.isArray(x.best) ? x.best : [null, null, null] }; renderAll(); });
+  onSnapshot(doc(db, 'settings', 'picks'), (d) => { picksDoc = d.data() || {}; syncPicks(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'classes'), (d) => { classList = Array.isArray(d.data()?.list) ? d.data().list : []; renderClassPicker(); renderClassEditor(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'photos'), (d) => { const x = d.data() || {}; photos = { map: x.map || '', emblem: x.emblem || '' }; applyPhotos(); });
-  onSnapshot(doc(db, 'settings', 'ai'), (d) => { const x = d.data() || {}; aiSel = { id: x.id ?? null, reason: x.reason || '' }; renderAll(); });
+  onSnapshot(doc(db, 'settings', 'ai'), (d) => { aiDoc = d.data() || {}; syncPicks(); renderAll(); });
   // 교사가 고른 화면(배움 시작/마무리)을 교실 화면이 따라감
   onSnapshot(doc(db, 'settings', 'state'), (d) => {
     const x = d.data() || {}; className = x.className || '';
     $('#clsChip').hidden = !className; $('#clsChip').textContent = className;
-    renderClassPicker();
+    renderClassPicker(); syncPicks(); renderFormCls(); qfDrawn = '';
     showLesson(x.lesson || 'close');
   });
   // 이 기기가 이미 비밀번호로 들어온 적이 있으면 교사 관리 모드 유지

@@ -310,3 +310,6 @@ body{margin:0}
 .cls-row .cs{width:64px}
 .inline-num{flex-direction:row;align-items:center;gap:4px;font-weight:500;font-size:13px;white-space:nowrap}
 #clsSelect{min-width:180px}
+
+.form-cls{margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:700;color:var(--name)}
+.cls-row .qr{white-space:nowrap}
