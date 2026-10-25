@@ -118,12 +118,21 @@ document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = asy
 
 /* ================= 수업 화면 ================= */
 const CLOUD_COLORS = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
+// 별명을 누르면 이름 보기 (이름은 교사 관리 모드로 들어온 기기에서만 불러올 수 있음)
+const revealed = new Set();
+$('#list').addEventListener('click', (ev) => {
+  const b = ev.target.closest('.nick-btn'); if (!b) return;
+  if (!isTeacher) return toast('이름은 교사 관리 모드로 들어온 기기에서만 볼 수 있어요');
+  const id = b.dataset.id; revealed.has(id) ? revealed.delete(id) : revealed.add(id);
+  if (revealed.has(id) && !byId(id)?.name) toast('이름이 저장되지 않은 일기예요');
+  renderClose();
+});
 function renderClose() {
   const v = visible();
   if (lesson === 'close') setStu(new Set(v.map((e) => e.sid)).size);
   $('#kw').innerHTML = '<strong>🔥 자주 등장한 핵심 키워드 Top 5:</strong>' + keywords(v).map((k) => `<span>#${esc(k)}</span>`).join('');
   $('#list').innerHTML = v.length ? [...v].sort((a, b) => ts(b) - ts(a)).map((e) =>
-    `<div class="card"><div class="who">👤 ${esc(e.nick)} <span class="no">${esc(e.sid)}</span></div><q>${esc(e.body)}</q></div>`).join('')
+    `<div class="card"><div class="who"><button type="button" class="nick-btn" data-id="${esc(e.id)}" title="누르면 이름 보기">👤 ${esc(e.nick)}</button> <span class="no">${esc(e.sid)}</span>${revealed.has(e.id) && e.name ? `<span class="real-name">${esc(e.name)}</span>` : ''}</div><q>${esc(e.body)}</q></div>`).join('')
     : '<div class="empty">아직 제출된 일기가 없어요. QR 코드로 첫 일기를 받아 보세요.</div>';
   const t = v.find((e) => e.id === picks.teacher);
   $('#tQuote').textContent = t ? `"${t.body}"` : '교사 관리 모드에서 추천 일기를 골라 주세요';
