@@ -535,3 +535,14 @@ body.deck-open{overflow:hidden}
 #v-teacher{max-width:none}
 .t-side .cfg{grid-template-columns:1fr}
 #v-class>header.panel .sub{font-size:clamp(17px,1.9vw,26px);font-weight:700;letter-spacing:.02em}
+/* 머리 세로 약 1cm 줄이기 */
+#v-class>header.panel{gap:4px;padding:10px 20px 12px}
+#v-class>header.panel .emblem-img{height:clamp(60px,5vw,84px)}
+#v-class>header.panel .sub{margin-top:0;line-height:1.3}
+#v-class>header.panel h1{line-height:1.15}
+/* 카드 칭찬 이모지: 작게, 댓글 수와 한 줄에 */
+.pc-bar{flex-wrap:nowrap;gap:6px;padding:8px 10px}
+.pc-reacts{flex-wrap:nowrap;gap:4px}
+.pc-like{font-size:17px;padding:2px 7px;gap:3px}
+.pc-like b{font-size:13px}
+.pc-cn{white-space:nowrap;font-size:13px}
