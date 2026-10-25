@@ -1251,7 +1251,11 @@ if (!configured) {
   onSnapshot(query(collection(db, 'pcomments'), where('hidden', '==', false)), (s) => { pubComments = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(collection(db, 'presentLikes'), (s) => { likes = s.docs.map((d) => ({ id: d.id, ...d.data() })); renderAll(); }, console.error);
   onSnapshot(query(collection(db, 'presents'), where('hidden', '==', false)), (s) => { rulesMissing = false; pubPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); });
-  onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
+  // 예전 기본 부제(…대시보드)로 저장돼 있으면 새 이름으로 바꿔 보여 줌
+  const renameOld = (c) => ({ ...c,
+    subtitle: /^학생들의 .* 배움 일기 대시보드$/.test(c.subtitle || '') ? '배움 일기 공유하기' : c.subtitle,
+    introSubtitle: /^학생들의 .* 연상 단어 공유 대시보드$/.test(c.introSubtitle || '') ? '연상 단어 공유하기' : c.introSubtitle });
+  onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = renameOld({ ...PRESETS.history, ...(d.data() || {}) }); applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
   onSnapshot(doc(db, 'settings', 'picks'), (d) => { picksDoc = d.data() || {}; syncPicks(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'classes'), (d) => { classList = Array.isArray(d.data()?.list) ? d.data().list : []; renderClassPicker(); renderClassEditor(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'photos'), (d) => { const x = d.data() || {}; photos = { map: x.map || '', emblem: x.emblem || '' }; applyPhotos(); });
