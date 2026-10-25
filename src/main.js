@@ -1092,7 +1092,7 @@ const commentsOf = (pid) => commentsAll().filter((c) => c.pres === pid && !c.hid
 const likeCount = (pid) => likes.filter((l) => l.pres === pid).length;
 const myLikeId = (pid) => (auth.currentUser ? `${pid}_${auth.currentUser.uid}` : '');
 const iLiked = (pid) => !!myLikeId(pid) && likes.some((l) => l.id === myLikeId(pid));
-const commentHTML = (c, withName) => `<div class="t-c"><div class="t-ch"><span class="t-type">${T_ICON[c.type] || '💬'} ${esc(c.type)}</span><span class="no">${esc(c.sid)}</span>${withName && c.name ? `<b>${esc(c.name)}</b>` : ''}<small>${hm(c.at)}</small></div><p>${esc(c.body)}</p></div>`;
+const commentHTML = (c, withName) => `<div class="t-c"><div class="t-ch"><span class="t-type">💬</span><span class="no">${esc(c.sid)}</span>${withName && c.name ? `<b>${esc(c.name)}</b>` : ''}<small>${hm(c.at)}</small></div><p>${esc(c.body)}</p></div>`;
 
 async function toggleLike(pid) {
   try {
@@ -1137,7 +1137,7 @@ $('#tList').onclick = (e) => {
 $('#talkForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const sid = $('#tSid').value.trim(), name = $('#tName').value.trim(), body = $('#talkBody').value.trim();
-  const type = document.querySelector('input[name=tType]:checked')?.value || '내용';
+  const type = '내용';   // 종류는 고르지 않음 (규칙 호환용 기본값)
   const bad = checkStudent(sid, name) || (!body ? '댓글을 적어 주세요.' : '') || (!talkPid ? '댓글을 달 발표를 골라 주세요.' : '');
   if (bad) { $('#tErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#tErr').textContent = '';
@@ -1178,10 +1178,10 @@ function renderTeacherTalk() {
   const rows = commentsAll().filter((c) => ids.has(c.pres) && (!sel.value || c.pres === sel.value) && (!q || `${c.sid} ${c.name} ${c.body}`.includes(q))).sort((a, b) => ts(b) - ts(a));
   $('#tcCnt').textContent = `${rows.length}개`;
   $('#tcRows').innerHTML = rows.length ? rows.map((c) => `<tr class="${c.hidden ? 'hid' : ''}" data-id="${esc(c.id)}"><td>${esc(titleOf.get(c.pres)?.name || '')}<div class="muted">${esc(titleOf.get(c.pres)?.title || '')}</div></td>
-    <td class="num">${esc(c.sid)}</td><td>${esc(c.name)}</td><td>${T_ICON[c.type] || ''} ${esc(c.type)}</td><td class="body">${esc(c.body)}</td><td class="num">${hm(c.at)}</td>
+    <td class="num">${esc(c.sid)}</td><td>${esc(c.name)}</td><td class="body">${esc(c.body)}</td><td class="num">${hm(c.at)}</td>
     <td><span class="state ${c.hidden ? 'off' : 'on'}">${c.hidden ? '숨김' : '표시 중'}</span></td>
     <td class="act"><div class="row"><button type="button" class="sm" data-a="toggle">${c.hidden ? '보이기' : '숨기기'}</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
-    : '<tr><td colspan="8" class="empty">아직 댓글이 없어요.</td></tr>';
+    : '<tr><td colspan="7" class="empty">아직 댓글이 없어요.</td></tr>';
 }
 $('#tcPres').onchange = renderTeacherTalk; $('#tcQ').oninput = renderTeacherTalk;
 $('#tcRows').onclick = async (e) => {
