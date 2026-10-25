@@ -452,8 +452,14 @@ $('#iClearAll').onclick = () => confirmBox($('#iClearBox'), `${className ? esc(c
   await saveArchive('비우기 전 자동 저장');
   await deleteAll('intro'); toast('배움 시작 기록을 비웠어요');
 });
+// 학생 제출 링크는 지금 수업하는 반 전용 (QR과 같은 주소)
+const linkOf = (v) => linkFor(['intro', 'write', 'present'].includes(v) ? submitHash(className, v === 'write' ? 'close' : v) : v);
+function renderLinks() {
+  document.querySelectorAll('[data-link]').forEach((c) => (c.textContent = decodeURI(linkOf(c.dataset.link))));
+  $('#linkCls').textContent = className ? `· ${className} 전용` : '· 반을 고르지 않았어요 (지금 수업하는 반으로 제출돼요)';
+}
 document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => {
-  navigator.clipboard?.writeText(linkFor(b.dataset.copy)).then(() => toast('링크를 복사했어요'), () => toast('복사가 안 돼요. 주소를 직접 선택해 주세요'));
+  navigator.clipboard?.writeText(linkOf(b.dataset.copy)).then(() => toast('링크를 복사했어요'), () => toast('복사가 안 돼요. 주소를 직접 선택해 주세요'));
 }));
 
 /* ================= 수업 들어가는 반 · 재적수 (settings/classes) ================= */
@@ -589,7 +595,7 @@ async function enterTeacher() {
   if (isTeacher) return;
   isTeacher = true;
   $('#lock').hidden = true; $('#tBody').hidden = false;
-  document.querySelectorAll('[data-link]').forEach((c) => (c.textContent = linkFor(c.dataset.link)));
+  renderLinks();
   const onErr = (err) => { console.error(err); toast('교사 권한을 확인하지 못했어요. 다시 들어와 주세요'); };
   teacherUnsubs = [
     onSnapshot(collection(db, 'entries'), (s) => { allEntries = s.docs.map(toEntry); renderAll(); }, onErr),
@@ -1090,7 +1096,7 @@ if (!configured) {
   onSnapshot(doc(db, 'settings', 'state'), (d) => {
     const x = d.data() || {}; className = x.className || '';
     $('#clsChip').hidden = !className; $('#clsChip').textContent = className;
-    renderClassPicker(); syncPicks(); renderFormCls(); qfDrawn = '';
+    renderClassPicker(); syncPicks(); renderFormCls(); renderLinks(); qfDrawn = '';
     showLesson(x.lesson || 'close');
   });
   // 이 기기가 이미 비밀번호로 들어온 적이 있으면 교사 관리 모드 유지
