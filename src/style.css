@@ -479,3 +479,7 @@ body.deck-open{overflow:hidden}
 .pc-empty{color:var(--muted);font-size:12px;text-align:center;padding:8px}
 .dk-like{font-size:22px;padding:4px 12px}
 .t-like{font-size:20px}
+.nav-cls{display:inline-flex;align-items:center;border:1px solid transparent;border-radius:999px;padding-right:4px}
+.nav-cls:has(a[aria-current="page"]){border-color:var(--accent)}
+.topbar .nav .nav-cls a{border:none;padding-right:6px}
+.nav-cls .nav-qr{margin:0;padding:2px 7px;font-size:11px;line-height:1.4}
