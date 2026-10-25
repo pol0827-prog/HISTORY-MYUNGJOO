@@ -409,3 +409,7 @@ body.deck-open{overflow:hidden}
 .sl-end.has-ph .sl-link{flex-direction:row;padding:1.6vmin 2.4vmin;max-width:none;gap:2vmin}
 .sl-end.has-ph .sl-link img{width:min(16vmin,160px)}
 .sl-end.has-ph .sl-link b{font-size:clamp(14px,2.4vmin,26px)}
+.sl-tap{font-style:normal;font-weight:700;color:#e3b56f;font-size:clamp(13px,2.2vmin,22px);text-align:center}
+:root[data-mode="light"] .sl-tap{color:#9a5a08}
+.sl-end.has-ph .sl-link span,.sl-end.has-ph .sl-link .sl-tap{display:block}
+.sl-end.has-ph .sl-link{flex-wrap:wrap}

@@ -735,6 +735,7 @@ const pOrder = (a, b) => (a.order || 0) - (b.order || 0) || ts(a) - ts(b);
 const presentsShown = () => presentsAll().filter((e) => !e.hidden).sort(pOrder);
 const kindLabel = (k) => (k === 'group' ? '모둠' : '개인');
 const safeUrl = (u) => { const t = String(u || '').trim(); if (!t) return ''; const v = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : 'https://' + t; return /^https?:\/\//i.test(v) ? v : ''; };
+const isVideo = (u) => /youtu\.?be|vimeo\.com|tv\.naver\.com|tv\.kakao|ebs\.co\.kr|\.(mp4|webm|mov)(\?|$)/i.test(u);
 const shortUrl = (u) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
 
 /* --- 수업 화면: 발표 자료 카드 --- */
@@ -809,7 +810,8 @@ async function buildSlides(p) {
   if (rest.length || links.length) {
     const qrs = await Promise.all(links.map((l) => QRCode.toDataURL(l.href, { width: 360, margin: 1 }).catch(() => '')));
     const linkHTML = links.map((l, i) => `<a class="sl-link" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">
-        ${qrs[i] ? `<img src="${qrs[i]}" alt="링크 QR 코드">` : ''}<b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span></a>`).join('');
+        ${qrs[i] ? `<img src="${qrs[i]}" alt="링크 QR 코드">` : ''}<b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span>
+        <em class="sl-tap">👆 QR을 터치하면 ${isVideo(l.href) ? '동영상이 나와요' : '링크가 열려요'}</em></a>`).join('');
     slides.push(`<div class="sl sl-end ${rest.length ? 'has-ph' : ''} ${links.length ? 'has-ln' : ''}">${head}<div class="sl-in">
       ${rest.length ? `<div class="sl-gal n${rest.length}">${rest.map((x) => fig(x)).join('')}</div>` : ''}
       ${links.length ? `<div class="sl-lns">${linkHTML}</div>` : ''}</div></div>`);
