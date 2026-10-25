@@ -524,3 +524,14 @@ body.deck-open{overflow:hidden}
 #v-class>header.panel>.row{gap:10px}
 #v-class>header.panel .lesson-switch button{font-size:clamp(14px,1.25vw,18px);padding:8px 16px}
 #v-class>header.panel .chip,#v-class>header.panel .cls-print{font-size:clamp(14px,1.25vw,18px);padding:8px 16px}
+/* 교사 관리 모드 2단: 왼쪽 수업 관리, 오른쪽 사진·반·화면 설정 (가운데 세로선) */
+.t-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);gap:0;align-items:start}
+.t-main,.t-side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.t-main{padding-right:18px}
+.t-side{padding-left:18px;border-left:2px solid var(--line);align-self:stretch}
+.t-side .photos{grid-template-columns:1fr 1fr}
+.t-side .cfg-grid,.t-side form .row2{grid-template-columns:1fr}
+@media (max-width:1000px){.t-cols{grid-template-columns:1fr}.t-main{padding-right:0}.t-side{padding-left:0;border-left:none;border-top:2px solid var(--line);padding-top:14px;margin-top:14px}}
+#v-teacher{max-width:none}
+.t-side .cfg{grid-template-columns:1fr}
+#v-class>header.panel .sub{font-size:clamp(17px,1.9vw,26px);font-weight:700;letter-spacing:.02em}

@@ -231,6 +231,7 @@
       <div class="row"><a class="btn" href="#class" target="_blank" rel="noopener">수업 화면 새 창으로 열기</a><button type="button" id="logout">나가기</button></div>
     </header>
 
+    <div class="t-cols"><div class="t-main">
     <section class="panel lesson-bar">
       <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다.</div></div>
       <div class="lesson-switch big" role="group" aria-label="오늘 배움 시작, 마무리, 배움공유">
@@ -331,64 +332,6 @@
     </section>
     </div>
 
-    <section class="panel">
-      <h2>🏫 수업 들어가는 반 <span class="muted">반과 재적수를 미리 넣어 두면 "지금 수업하는 반"에서 고를 수 있고, 수업 화면에 제출 학생 수 / 재적수가 보여요</span></h2>
-      <div class="cls-list" id="clsList"></div>
-      <div class="row" style="margin:10px 0 22px">
-        <button type="button" class="sm" id="clsAdd">+ 반 추가</button>
-        <button type="button" class="primary sm" id="clsListSave">반 목록 저장</button>
-      </div>
-      <h2>⚙️ 화면 설정 <span class="muted">과목과 수업에 맞게 문구를 바꾸면 수업 화면·학생 제출·인쇄물에 모두 반영돼요</span></h2>
-      <div class="row" style="margin-bottom:12px">
-        <span class="muted">예시 불러오기</span>
-        <button type="button" class="sm" data-preset="history">세계사</button>
-        <button type="button" class="sm" data-preset="science">과학</button>
-        <button type="button" class="sm" data-preset="korean">국어</button>
-        <button type="button" class="sm" data-preset="blank">빈 양식</button>
-      </div>
-      <form id="cfgForm" class="cfg">
-        <label>과목명 <span class="muted">"{과목} 배움 일기", "{과목} 별명"처럼 화면 곳곳에 들어가요</span><input id="c-subject" maxlength="12" required></label>
-        <label>제목 앞 아이콘 <input id="c-icon" maxlength="4"></label>
-        <label class="wide">앱 제목 <input id="c-title" maxlength="60" required></label>
-        <label class="wide">부제 (배움 마무리) <input id="c-subtitle" maxlength="80"></label>
-        <label class="wide">부제 (배움 시작) <input id="c-introSubtitle" maxlength="80"></label>
-        <label class="wide">연상 단어 안내 (학생 배움 시작 제출 화면) <input id="c-introHelp" maxlength="80"></label>
-        <label class="wide">오른쪽 그림 칸 제목 <input id="c-side" maxlength="60"></label>
-        <label>별명 설명 (학생 제출 화면) <input id="c-nickHelp" maxlength="60"></label>
-        <label>별명 예시 <input id="c-nickEx" maxlength="30"></label>
-        <label class="wide">일기 설명 (학생 제출 화면) <input id="c-bodyHelp" maxlength="80"></label>
-        <label class="wide">명언 (배움 시작) <input id="c-introQuote" maxlength="80"></label>
-        <label>명언 출처 (배움 시작) <input id="c-introQuoteBy" maxlength="30"></label>
-        <label class="wide">아래 문장 (배움 시작) <input id="c-introClosing" maxlength="120"></label>
-        <label class="wide">명언 (배움 마무리) <input id="c-quote" maxlength="80"></label>
-        <label>명언 출처 (배움 마무리) <input id="c-quoteBy" maxlength="30"></label>
-        <label class="wide">아래 문장 (배움 마무리) <input id="c-closing" maxlength="120"></label>
-        <label class="wide">AI 추천 기준 <span class="muted">Gemini가 일기를 고를 때 보는 기준</span><textarea id="c-aiCriteria" maxlength="300" style="min-height:70px"></textarea></label>
-        <div class="row wide" style="justify-content:flex-end"><button type="submit" class="primary">설정 저장</button></div>
-      </form>
-    </section>
-
-    <section class="panel">
-      <h2>🖼️ 수업 화면 사진 <span class="muted">사진을 고르면 크기를 알맞게 줄여서 저장하고, 수업 화면에 바로 바뀌어요</span></h2>
-      <div class="photos">
-        <div class="photo-slot">
-          <b>오른쪽 그림 칸 (세계지도 자리)</b>
-          <div class="photo-prev tall"><img id="pvMap" alt="" hidden><span id="pvMapNone" class="muted">기본 지도 그림</span></div>
-          <div class="row">
-            <label class="btn sm file-btn">사진 고르기<input type="file" accept="image/*" data-photo="map" hidden></label>
-            <button type="button" class="sm" data-photo-reset="map">기본 그림으로</button>
-          </div>
-        </div>
-        <div class="photo-slot">
-          <b>제목 옆 작은 사진</b>
-          <div class="photo-prev wide"><img id="pvEmblem" alt="" hidden><span id="pvEmblemNone" class="muted">기본 기둥 그림</span></div>
-          <div class="row">
-            <label class="btn sm file-btn">사진 고르기<input type="file" accept="image/*" data-photo="emblem" hidden></label>
-            <button type="button" class="sm" data-photo-reset="emblem">기본 그림으로</button>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <section class="panel">
       <h2>🖨️ 자료 인쇄</h2>
@@ -428,6 +371,67 @@
       </div>
       <p class="muted">수업용 화면 링크는 학생들에게 주셔도 되고 교실 공동 화면에 띄우기만 하셔도 됩니다. 단, 교사 관리 모드 링크는 학생에게 공유하지 마세요.</p>
     </section>
+    </div>
+    <aside class="t-side">
+    <section class="panel">
+      <h2>🖼️ 수업 화면 사진 <span class="muted">사진을 고르면 크기를 알맞게 줄여서 저장하고, 수업 화면에 바로 바뀌어요</span></h2>
+      <div class="photos">
+        <div class="photo-slot">
+          <b>오른쪽 그림 칸 (세계지도 자리)</b>
+          <div class="photo-prev tall"><img id="pvMap" alt="" hidden><span id="pvMapNone" class="muted">기본 지도 그림</span></div>
+          <div class="row">
+            <label class="btn sm file-btn">사진 고르기<input type="file" accept="image/*" data-photo="map" hidden></label>
+            <button type="button" class="sm" data-photo-reset="map">기본 그림으로</button>
+          </div>
+        </div>
+        <div class="photo-slot">
+          <b>제목 옆 작은 사진</b>
+          <div class="photo-prev wide"><img id="pvEmblem" alt="" hidden><span id="pvEmblemNone" class="muted">기본 기둥 그림</span></div>
+          <div class="row">
+            <label class="btn sm file-btn">사진 고르기<input type="file" accept="image/*" data-photo="emblem" hidden></label>
+            <button type="button" class="sm" data-photo-reset="emblem">기본 그림으로</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>🏫 수업 들어가는 반 <span class="muted">반과 재적수를 미리 넣어 두면 "지금 수업하는 반"에서 고를 수 있고, 수업 화면에 제출 학생 수 / 재적수가 보여요</span></h2>
+      <div class="cls-list" id="clsList"></div>
+      <div class="row" style="margin:10px 0 22px">
+        <button type="button" class="sm" id="clsAdd">+ 반 추가</button>
+        <button type="button" class="primary sm" id="clsListSave">반 목록 저장</button>
+      </div>
+      <h2>⚙️ 화면 설정 <span class="muted">과목과 수업에 맞게 문구를 바꾸면 수업 화면·학생 제출·인쇄물에 모두 반영돼요</span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <span class="muted">예시 불러오기</span>
+        <button type="button" class="sm" data-preset="history">세계사</button>
+        <button type="button" class="sm" data-preset="science">과학</button>
+        <button type="button" class="sm" data-preset="korean">국어</button>
+        <button type="button" class="sm" data-preset="blank">빈 양식</button>
+      </div>
+      <form id="cfgForm" class="cfg">
+        <label>과목명 <span class="muted">"{과목} 배움 일기", "{과목} 별명"처럼 화면 곳곳에 들어가요</span><input id="c-subject" maxlength="12" required></label>
+        <label>제목 앞 아이콘 <input id="c-icon" maxlength="4"></label>
+        <label class="wide">앱 제목 <input id="c-title" maxlength="60" required></label>
+        <label class="wide">부제 (배움 마무리) <input id="c-subtitle" maxlength="80"></label>
+        <label class="wide">부제 (배움 시작) <input id="c-introSubtitle" maxlength="80"></label>
+        <label class="wide">연상 단어 안내 (학생 배움 시작 제출 화면) <input id="c-introHelp" maxlength="80"></label>
+        <label class="wide">오른쪽 그림 칸 제목 <input id="c-side" maxlength="60"></label>
+        <label>별명 설명 (학생 제출 화면) <input id="c-nickHelp" maxlength="60"></label>
+        <label>별명 예시 <input id="c-nickEx" maxlength="30"></label>
+        <label class="wide">일기 설명 (학생 제출 화면) <input id="c-bodyHelp" maxlength="80"></label>
+        <label class="wide">명언 (배움 시작) <input id="c-introQuote" maxlength="80"></label>
+        <label>명언 출처 (배움 시작) <input id="c-introQuoteBy" maxlength="30"></label>
+        <label class="wide">아래 문장 (배움 시작) <input id="c-introClosing" maxlength="120"></label>
+        <label class="wide">명언 (배움 마무리) <input id="c-quote" maxlength="80"></label>
+        <label>명언 출처 (배움 마무리) <input id="c-quoteBy" maxlength="30"></label>
+        <label class="wide">아래 문장 (배움 마무리) <input id="c-closing" maxlength="120"></label>
+        <label class="wide">AI 추천 기준 <span class="muted">Gemini가 일기를 고를 때 보는 기준</span><textarea id="c-aiCriteria" maxlength="300" style="min-height:70px"></textarea></label>
+        <div class="row wide" style="justify-content:flex-end"><button type="submit" class="primary">설정 저장</button></div>
+      </form>
+    </section>
+    </aside></div>
   </div>
 </div>
 
