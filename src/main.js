@@ -742,6 +742,18 @@ const presentsShown = () => presentsAll().filter((e) => !e.hidden).sort(pOrder);
 const kindLabel = (k) => (k === 'group' ? '모둠' : '개인');
 const safeUrl = (u) => { const t = String(u || '').trim(); if (!t) return ''; const v = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : 'https://' + t; return /^https?:\/\//i.test(v) ? v : ''; };
 const isVideo = (u) => /youtu\.?be|vimeo\.com|tv\.naver\.com|tv\.kakao|ebs\.co\.kr|\.(mp4|webm|mov)(\?|$)/i.test(u);
+// 화면 안에서 바로 재생할 수 있는 동영상 주소 → 넣을 주소
+function embedOf(u) {
+  let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+  if (m) {
+    const t = (u.match(/[?&](?:t|start)=(\d+)(?:s)?/) || [])[1];
+    return { kind: 'frame', src: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0${t ? `&start=${t}` : ''}` };
+  }
+  m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (m) return { kind: 'frame', src: `https://player.vimeo.com/video/${m[1]}` };
+  if (/\.(mp4|webm|mov)(\?|#|$)/i.test(u)) return { kind: 'video', src: u };
+  return null;
+}
 const shortUrl = (u) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
 
 /* --- 수업 화면: 발표 자료 카드 --- */
@@ -800,7 +812,8 @@ function groupBlocks(blocks, n) {
   return groups;
 }
 async function buildSlides(p) {
-  const photos = await photosOf(p), blocks = blocksOf(p.body), links = (p.links || []).map((l) => ({ ...l, href: safeUrl(l.url) })).filter((l) => l.href);
+  const photos = await photosOf(p), blocks = blocksOf(p.body);
+  let links = (p.links || []).map((l) => ({ ...l, href: safeUrl(l.url) })).filter((l) => l.href);
   const head = `<div class="sl-head">${esc(p.title)}</div>`;
   const slides = [];
   const rest = [...photos];
@@ -813,11 +826,20 @@ async function buildSlides(p) {
     const ph = rest.shift();
     slides.push(`<div class="sl sl-text ${ph ? 'has-photo' : ''}">${head}<div class="sl-in"><div class="sl-body">${g.map(blockHTML).join('')}</div>${fig(ph)}</div></div>`);
   }
+  // 동영상 링크는 QR 대신 화면 안에서 바로 재생
+  const videos = links.filter((l) => embedOf(l.href));
+  for (const l of videos) {
+    const e = embedOf(l.href);
+    slides.push(`<div class="sl sl-video">${head}<div class="sl-in"><div class="sl-vbox">${e.kind === 'frame'
+      ? `<iframe src="${esc(e.src)}" title="${esc(l.label || '동영상')}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
+      : `<video src="${esc(e.src)}" controls playsinline preload="metadata"></video>`}</div>
+      <div class="sl-vcap"><b>🎬 ${esc(l.label || '동영상')}</b><a href="${esc(l.href)}" target="_blank" rel="noopener noreferrer"><span>영상이 안 나오면 여기를 눌러 원래 사이트에서 열기 ↗</span></a></div></div></div>`);
+  }
+  links = links.filter((l) => !embedOf(l.href));
   if (rest.length || links.length) {
-    const qrs = await Promise.all(links.map((l) => QRCode.toDataURL(l.href, { width: 360, margin: 1 }).catch(() => '')));
-    const linkHTML = links.map((l, i) => `<a class="sl-link" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">
-        ${qrs[i] ? `<img src="${qrs[i]}" alt="링크 QR 코드">` : ''}<b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span>
-        <em class="sl-tap">👆 QR을 터치하면 ${isVideo(l.href) ? '동영상이 나와요' : '링크가 열려요'}</em></a>`).join('');
+    const linkHTML = links.map((l) => `<a class="sl-link" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">
+        <i class="sl-ico">${isVideo(l.href) ? '🎬' : '🔗'}</i><b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span>
+        <em class="sl-tap">👆 누르면 ${isVideo(l.href) ? '동영상이 나와요' : '링크가 열려요'}</em></a>`).join('');
     slides.push(`<div class="sl sl-end ${rest.length ? 'has-ph' : ''} ${links.length ? 'has-ln' : ''}">${head}<div class="sl-in">
       ${rest.length ? `<div class="sl-gal n${rest.length}">${rest.map((x) => fig(x)).join('')}</div>` : ''}
       ${links.length ? `<div class="sl-lns">${linkHTML}</div>` : ''}</div></div>`);
@@ -864,11 +886,11 @@ $('#dkNext').onclick = () => deckGo(1);
 $('#dkClose').onclick = closeDeck;
 $('#dkFull').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : $('#deck').requestFullscreen?.()).catch?.(() => {});
 $('#deckStage').onclick = (e) => {
-  if (e.target.closest('a,button')) return;
+  if (e.target.closest('a,button,video,iframe,.sl-vbox')) return;
   const r = $('#deckStage').getBoundingClientRect(); deckGo(e.clientX - r.left > r.width / 3 ? 1 : -1);
 };
 document.addEventListener('keydown', (e) => {
-  if ($('#deck').hidden) return;
+  if ($('#deck').hidden || /VIDEO|INPUT|TEXTAREA/.test(e.target.tagName)) return;
   if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); deckGo(1); }
   else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); deckGo(-1); }
   else if (e.key === 'Escape' && !document.fullscreenElement) closeDeck();
