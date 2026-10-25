@@ -35,6 +35,7 @@ function checkStudent(sid, name) {
 let isTeacher = false;
 let pubEntries = [], allEntries = [], names = new Map();   // 배움 마무리
 let pubIntro = [], allIntro = [];                         // 배움 시작
+let pubPresents = [], allPresents = [];                   // 발표 자료
 let picks = { teacher: null, best: [null, null, null] };
 let aiSel = { id: null, reason: '' };
 let cfg = { ...PRESETS.history };
@@ -102,14 +103,14 @@ $('#cfgForm').addEventListener('submit', async (e) => {
 
 /* ================= 오늘 배움 시작 / 마무리 ================= */
 function showLesson(m) {
-  lesson = m === 'intro' ? 'intro' : 'close';
+  lesson = m === 'intro' || m === 'present' ? m : 'close';
   document.documentElement.dataset.lesson = lesson;
   document.querySelectorAll('button[data-lesson]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.lesson === lesson));
   renderAll(); if (document.getElementById('qrFloat')) renderQrFloat();
 }
 document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = async () => {
   showLesson(b.dataset.lesson);
-  const msg = b.dataset.lesson === 'intro' ? '오늘 배움 시작 화면으로 바꿨어요' : '오늘 배움 마무리 화면으로 바꿨어요';
+  const msg = { intro: '오늘 배움 시작 화면으로 바꿨어요', close: '오늘 배움 마무리 화면으로 바꿨어요', present: '발표 화면으로 바꿨어요' }[lesson];
   if (isTeacher) { try { await setDoc(doc(db, 'settings', 'state'), { lesson }, { merge: true }); } catch { /* 이 화면만 바뀜 */ } }
   toast(msg);
 }));
@@ -150,7 +151,7 @@ function renderIntro() {
   $('#iList').innerHTML = v.length ? [...v].sort((a, b) => a.sid.localeCompare(b.sid)).map((e) => `<div class="card"><div class="who">${esc(e.sid)} ${esc(e.name)}</div><div style="margin-top:4px">💡 단어1: ${esc(e.w1)} / 단어2: ${esc(e.w2)}</div></div>`).join('')
     : '<div class="empty">아직 제출이 없어요.</div>';
 }
-function renderAll() { renderClose(); renderIntro(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); } }
+function renderAll() { renderClose(); renderIntro(); renderPresent(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); } }
 
 $('#btnRefresh').onclick = async () => {
   try {
@@ -167,8 +168,8 @@ async function showQr(hash, title) {
   $('#qrUrl').textContent = url; $('#qrTitle').textContent = title; $('#qrModal').hidden = false;
 }
 // 학생 제출 링크: 반 이름이 들어가서 반마다 QR이 달라짐
-const submitHash = (c = className, l = lesson) => (l === 'intro' ? 'intro' : 'write') + (c ? `?c=${encodeURIComponent(c)}` : '');
-const qrTitleFor = (c = className, l = lesson) => `${c ? `[${c}] ` : ''}휴대폰으로 찍으면 ${l === 'intro' ? '연상 단어' : '일기'} 제출 화면이 열려요`;
+const submitHash = (c = className, l = lesson) => ({ intro: 'intro', present: 'present' }[l] || 'write') + (c ? `?c=${encodeURIComponent(c)}` : '');
+const qrTitleFor = (c = className, l = lesson) => `${c ? `[${c}] ` : ''}휴대폰으로 찍으면 ${{ intro: '연상 단어 제출', present: '발표 자료 올리기' }[l] || '일기 제출'} 화면이 열려요`;
 $('#btnQR').onclick = () => showQr(submitHash(), qrTitleFor());
 // 위쪽 막대의 QR: 학생 휴대폰으로 수업 화면을 볼 때만 가끔 씀
 $('#navQr').onclick = () => showQr('class', '휴대폰으로 찍으면 수업 화면이 열려요');
@@ -188,7 +189,7 @@ async function renderQrFloat() {
   document.documentElement.dataset.qr = onClass && !qfMini ? 'open' : '';
   if (!onClass || qfMini) return;
   $('#qfToggle').textContent = 'QR 접기';
-  $('#qfTitle').textContent = lesson === 'intro' ? '🚪 배움 시작 제출' : '🏁 배움 마무리 제출';
+  $('#qfTitle').textContent = { intro: '🚪 배움 시작 제출', present: '🎤 발표 자료 올리기' }[lesson] || '🏁 배움 마무리 제출';
   const url = linkFor(submitHash());
   $('#qfCap').textContent = className ? `${className} 전용 · 휴대폰 카메라로 찍으세요` : '휴대폰 카메라로 찍으세요';
   if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }
@@ -218,16 +219,25 @@ function applyPhotos() {
 }
 applyPhotos();
 /* 사진을 줄여서 JPEG 글자 데이터로 만들기 (Firestore 문서 한 개에 담기도록) */
-function shrinkPhoto(file, maxSide) {
+function fitJpeg(im, maxSide, maxLen) {
+  let side = maxSide, out = '';
+  for (let k = 0; k < 6; k++) {
+    let w = im.naturalWidth || im.width, h = im.naturalHeight || im.height; const r = Math.min(1, side / Math.max(w, h)); w = Math.max(1, Math.round(w * r)); h = Math.max(1, Math.round(h * r));
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(im, 0, 0, w, h);
+    let q = 0.85; out = c.toDataURL('image/jpeg', q);
+    while (out.length > maxLen && q > 0.45) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+    if (out.length <= maxLen) return out;
+    side = Math.round(Math.max(w, h) * 0.75);
+  }
+  return out;
+}
+const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('사진을 읽지 못했어요')); im.src = src; });
+function shrinkPhoto(file, maxSide, maxLen = 380000) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file), im = new Image();
     im.onload = () => {
-      let w = im.naturalWidth, h = im.naturalHeight; const r = Math.min(1, maxSide / Math.max(w, h)); w = Math.round(w * r); h = Math.round(h * r);
-      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      let q = 0.85, out = c.toDataURL('image/jpeg', q);
-      while (out.length > 380000 && q > 0.4) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
-      resolve(out);
+      resolve(fitJpeg(im, maxSide, maxLen));
     };
     im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('사진을 읽지 못했어요')); };
     im.src = url;
@@ -585,13 +595,14 @@ async function enterTeacher() {
     onSnapshot(collection(db, 'entries'), (s) => { allEntries = s.docs.map(toEntry); renderAll(); }, onErr),
     onSnapshot(collection(db, 'entryNames'), (s) => { names = new Map(s.docs.map((d) => [d.id, d.data()])); renderAll(); }, onErr),
     onSnapshot(collection(db, 'intro'), (s) => { allIntro = s.docs.map(toEntry); renderAll(); }, onErr),
+    onSnapshot(collection(db, 'presents'), (s) => { allPresents = s.docs.map(toEntry); renderAll(); }, onErr),
     onSnapshot(query(collection(db, 'archives'), orderBy('savedAt', 'desc')), (s) => { archives = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })); renderArchives(); }, onErr),
   ];
   fillCfgForm(cfg); renderAll();
 }
 function leaveTeacher() {
   isTeacher = false; teacherUnsubs.forEach((u) => u()); teacherUnsubs = [];
-  allEntries = []; names = new Map(); allIntro = [];
+  allEntries = []; names = new Map(); allIntro = []; allPresents = [];
   $('#lock').hidden = false; $('#tBody').hidden = true; renderAll();
 }
 
@@ -712,25 +723,337 @@ let savedMode = null; try { savedMode = localStorage.getItem('mode'); } catch { 
 setMode(savedMode === 'light' ? 'light' : 'dark');
 $('#modeBtn').onclick = () => setMode(document.documentElement.dataset.mode === 'light' ? 'dark' : 'light');
 
+/* ================= 🎤 발표 자료 =================
+   presents/{반~ID}      : 제목·발표자·내용·링크·작은 사진(thumb) — 수업 화면 목록용 (가벼움)
+   presentPhotos/{같은 ID}: 큰 사진들과 설명 — 발표 화면을 열 때만 불러옴
+   학생은 자동 익명 로그인(owner)으로 자기 휴대폰에서 다시 고칠 수 있음 */
+const P_MAX_PHOTOS = 4, P_MAX_LINKS = 3;
+const presentsAll = () => (isTeacher ? allPresents : pubPresents).filter(inCls);
+const pOrder = (a, b) => (a.order || 0) - (b.order || 0) || ts(a) - ts(b);
+const presentsShown = () => presentsAll().filter((e) => !e.hidden).sort(pOrder);
+const kindLabel = (k) => (k === 'group' ? '모둠' : '개인');
+const safeUrl = (u) => { const t = String(u || '').trim(); if (!t) return ''; const v = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : 'https://' + t; return /^https?:\/\//i.test(v) ? v : ''; };
+const shortUrl = (u) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+
+/* --- 수업 화면: 발표 자료 카드 --- */
+function renderPresent() {
+  const v = presentsShown();
+  $('#cPres').textContent = v.length;
+  $('#pCount').textContent = v.length ? `${v.length}개` : '';
+  $('#pPlayAll').hidden = !v.length;
+  $('#pGrid').innerHTML = v.length ? v.map((e, i) => `<button type="button" class="pcard" data-i="${i}">
+      <div class="pthumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : '<span>🎤</span>'}<em>${i + 1}</em></div>
+      <div class="pinfo"><b>${esc(e.title)}</b><span><i class="pk ${e.kind === 'group' ? 'g' : ''}">${kindLabel(e.kind)}</i> ${esc(e.name)}</span>
+      <small>${e.nPhotos ? `📷 ${e.nPhotos}` : ''}${e.links?.length ? ` 🔗 ${e.links.length}` : ''} · ▶ 발표 시작</small></div></button>`).join('')
+    : '<div class="empty">아직 올라온 발표 자료가 없어요. 오른쪽 위 QR 코드로 학생·모둠이 발표 자료를 올리게 해 보세요.</div>';
+}
+$('#pGrid').onclick = (e) => { const b = e.target.closest('.pcard'); if (b) openDeck(presentsShown(), Number(b.dataset.i)); };
+$('#pPlayAll').onclick = () => openDeck(presentsShown(), 0);
+
+/* --- 발표 화면 (슬라이드) --- */
+const photoCache = new Map();
+async function photosOf(p) {
+  if (p.photos) return p.photos;                       // 미리보기(아직 안 올린 것)
+  if (!p.nPhotos) return [];
+  if (photoCache.has(p.id + (p.updatedAt?.toMillis?.() || ''))) return photoCache.get(p.id + (p.updatedAt?.toMillis?.() || ''));
+  try {
+    const d = await getDoc(doc(db, 'presentPhotos', p.id)); const x = d.data() || {};
+    const list = (x.photos || []).map((src, i) => ({ src, cap: (x.caps || [])[i] || '' }));
+    photoCache.set(p.id + (p.updatedAt?.toMillis?.() || ''), list); return list;
+  } catch (err) { console.error(err); return []; }
+}
+function blocksOf(body) {
+  return String(body || '').replace(/\r/g, '').split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+}
+function blockHTML(b) {
+  let html = '', inList = false;
+  b.split('\n').forEach((ln) => {
+    const t = ln.trim(); if (!t) return;
+    const li = t.match(/^[-•*·]\s*(.+)/), h = t.match(/^#+\s*(.+)/);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${esc(li[1])}</li>`; return; }
+    if (inList) { html += '</ul>'; inList = false; }
+    html += h ? `<h3>${esc(h[1])}</h3>` : `<p>${esc(t)}</p>`;
+  });
+  return html + (inList ? '</ul>' : '');
+}
+const fig = (ph, cls = '') => (ph ? `<figure class="${cls}"><img src="${ph.src}" alt="">${ph.cap ? `<figcaption>${esc(ph.cap)}</figcaption>` : ''}</figure>` : '');
+async function buildSlides(p) {
+  const photos = await photosOf(p), blocks = blocksOf(p.body), links = (p.links || []).map((l) => ({ ...l, href: safeUrl(l.url) })).filter((l) => l.href);
+  const head = `<div class="sl-head">${esc(p.title)}</div>`;
+  const slides = [];
+  const rest = [...photos];
+  const cover = rest.shift();
+  slides.push(`<div class="sl sl-title ${cover ? 'has-photo' : ''}"><div class="sl-tx">
+      <span class="sl-kind">${kindLabel(p.kind)} 발표${p.cls ? ` · ${esc(p.cls)}` : ''}</span>
+      <h2>${esc(p.title)}</h2><div class="sl-by">${esc(p.name)}${p.sid ? ` <small>(${esc(p.sid)})</small>` : ''}</div></div>${fig(cover)}</div>`);
+  blocks.forEach((b) => {
+    const ph = rest.shift();
+    slides.push(`<div class="sl sl-text ${ph ? 'has-photo' : ''}">${head}<div class="sl-in"><div class="sl-body">${blockHTML(b)}</div>${fig(ph)}</div></div>`);
+  });
+  for (let i = 0; i < rest.length; i += 2) {
+    const two = rest.slice(i, i + 2);
+    slides.push(`<div class="sl sl-photos n${two.length}">${head}<div class="sl-in">${two.map((x) => fig(x)).join('')}</div></div>`);
+  }
+  if (links.length) {
+    const qrs = await Promise.all(links.map((l) => QRCode.toDataURL(l.href, { width: 360, margin: 1 }).catch(() => '')));
+    slides.push(`<div class="sl sl-links">${head}<div class="sl-in n${links.length}">${links.map((l, i) => `<a class="sl-link" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">
+        ${qrs[i] ? `<img src="${qrs[i]}" alt="링크 QR 코드">` : ''}<b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span></a>`).join('')}</div></div>`);
+  }
+  return slides;
+}
+const deck = { list: [], pi: 0, si: 0, slides: [] };
+async function openDeck(list, pi, si = 0) {
+  if (!list.length) return;
+  deck.list = list; deck.pi = pi; $('#deck').hidden = false; document.body.classList.add('deck-open');
+  $('#deckStage').innerHTML = '<div class="sl sl-wait">발표 화면을 준비하는 중…</div>';
+  deck.slides = await buildSlides(list[pi]);
+  deck.si = si < 0 ? deck.slides.length - 1 : Math.min(si, deck.slides.length - 1);
+  showSlide();
+}
+function fitText(box) {
+  if (!box) return;
+  let fs = parseFloat(getComputedStyle(box).fontSize);
+  for (let k = 0; k < 30 && box.scrollHeight > box.clientHeight + 1 && fs > 13; k++) { fs *= 0.92; box.style.fontSize = fs + 'px'; }
+}
+function showSlide() {
+  const p = deck.list[deck.pi], n = deck.slides.length, last = deck.si === n - 1, next = deck.list[deck.pi + 1];
+  $('#deckStage').innerHTML = deck.slides[deck.si] + (last && next ? `<button type="button" class="sl-next" id="dkNextP">다음 발표: ${esc(next.title)} ▶</button>` : '');
+  $('#dkTitle').textContent = deck.list.length > 1 ? `${deck.pi + 1}/${deck.list.length} · ${p.title}` : p.title;
+  $('#dkNum').textContent = `${deck.si + 1} / ${n}`;
+  $('#dkPrev').disabled = deck.si === 0 && deck.pi === 0;
+  $('#dkNext').disabled = last && !next;
+  requestAnimationFrame(() => document.querySelectorAll('#deckStage .sl-body, #deckStage .sl-title h2').forEach(fitText));
+  $('#dkNextP')?.addEventListener('click', (e) => { e.stopPropagation(); deckGo(1); });
+}
+function deckGo(d) {
+  if ($('#deck').hidden) return;
+  const ni = deck.si + d;
+  if (ni >= 0 && ni < deck.slides.length) { deck.si = ni; return showSlide(); }
+  if (d > 0 && deck.pi < deck.list.length - 1) return openDeck(deck.list, deck.pi + 1, 0);
+  if (d < 0 && deck.pi > 0) return openDeck(deck.list, deck.pi - 1, -1);
+}
+function closeDeck() {
+  $('#deck').hidden = true; document.body.classList.remove('deck-open');
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+}
+$('#dkPrev').onclick = () => deckGo(-1);
+$('#dkNext').onclick = () => deckGo(1);
+$('#dkClose').onclick = closeDeck;
+$('#dkFull').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : $('#deck').requestFullscreen?.()).catch?.(() => {});
+$('#deckStage').onclick = (e) => {
+  if (e.target.closest('a,button')) return;
+  const r = $('#deckStage').getBoundingClientRect(); deckGo(e.clientX - r.left > r.width / 3 ? 1 : -1);
+};
+document.addEventListener('keydown', (e) => {
+  if ($('#deck').hidden) return;
+  if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); deckGo(1); }
+  else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); deckGo(-1); }
+  else if (e.key === 'Escape' && !document.fullscreenElement) closeDeck();
+});
+window.addEventListener('resize', () => { if (!$('#deck').hidden) showSlide(); });
+
+/* --- 학생 편집 화면 (올리기 · 고치기) --- */
+const pf = { id: null, photos: [], links: [], owner: '' };
+let myPresents = []; try { myPresents = JSON.parse(localStorage.getItem('myPresents') || '[]'); } catch { /* 무시 */ }
+const saveMine = () => { try { localStorage.setItem('myPresents', JSON.stringify(myPresents.slice(-20))); } catch { /* 무시 */ } };
+const pKind = () => document.querySelector('input[name=pKind]:checked')?.value || 'solo';
+function syncKind() {
+  const g = pKind() === 'group';
+  $('#pSidLbl').textContent = g ? '대표 학생 학번' : '학번';
+  $('#pNameLbl').textContent = g ? '모둠 이름과 모둠원' : '이름';
+  $('#pName').placeholder = g ? '예: 3모둠 (김서준, 이하윤, 박도윤)' : '예: 홍길동';
+}
+document.querySelectorAll('input[name=pKind]').forEach((r) => (r.onchange = syncKind));
+function renderPhotoList() {
+  $('#pPhotoList').innerHTML = pf.photos.map((ph, i) => `<div class="p-photo" data-i="${i}"><img src="${ph.src}" alt="">
+    <input class="cap" maxlength="60" placeholder="사진 설명 (선택)" value="${esc(ph.cap)}" aria-label="사진 ${i + 1} 설명">
+    <div class="row"><button type="button" class="sm" data-a="up" ${i ? '' : 'disabled'} aria-label="앞으로">◀</button><button type="button" class="sm" data-a="down" ${i < pf.photos.length - 1 ? '' : 'disabled'} aria-label="뒤로">▶</button><button type="button" class="sm danger" data-a="rm">삭제</button></div>
+    ${i === 0 ? '<span class="p-cover">표지</span>' : ''}</div>`).join('');
+  $('#pPhotoBtn').hidden = pf.photos.length >= P_MAX_PHOTOS;
+}
+$('#pPhotoList').addEventListener('input', (e) => { const box = e.target.closest('.p-photo'); if (box && e.target.classList.contains('cap')) pf.photos[box.dataset.i].cap = e.target.value; });
+$('#pPhotoList').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return; const i = Number(b.closest('.p-photo').dataset.i), a = b.dataset.a;
+  if (a === 'rm') pf.photos.splice(i, 1);
+  if (a === 'up' && i > 0) [pf.photos[i - 1], pf.photos[i]] = [pf.photos[i], pf.photos[i - 1]];
+  if (a === 'down' && i < pf.photos.length - 1) [pf.photos[i + 1], pf.photos[i]] = [pf.photos[i], pf.photos[i + 1]];
+  renderPhotoList();
+};
+$('#pPhotoIn').addEventListener('change', async (e) => {
+  const files = [...(e.target.files || [])].filter((f) => f.type.startsWith('image/')); e.target.value = '';
+  const room = P_MAX_PHOTOS - pf.photos.length;
+  if (files.length > room) toast(`사진은 ${P_MAX_PHOTOS}장까지라서 ${room}장만 넣었어요`);
+  for (const f of files.slice(0, room)) {
+    try { pf.photos.push({ src: await shrinkPhoto(f, 1280, 190000), cap: '' }); renderPhotoList(); }
+    catch { toast('사진을 읽지 못했어요. 다른 사진으로 해 주세요'); }
+  }
+});
+function renderLinkList() {
+  $('#pLinkList').innerHTML = pf.links.map((l, i) => `<div class="p-link" data-i="${i}">
+    <input class="lb" maxlength="40" placeholder="이름 (예: 참고 영상)" value="${esc(l.label)}" aria-label="링크 ${i + 1} 이름">
+    <input class="ur" maxlength="500" inputmode="url" placeholder="https://..." value="${esc(l.url)}" aria-label="링크 ${i + 1} 주소">
+    <button type="button" class="sm danger">삭제</button></div>`).join('');
+  $('#pLinkAdd').hidden = pf.links.length >= P_MAX_LINKS;
+}
+$('#pLinkList').addEventListener('input', (e) => { const row = e.target.closest('.p-link'); if (!row) return; const l = pf.links[row.dataset.i]; if (e.target.classList.contains('lb')) l.label = e.target.value; else l.url = e.target.value; });
+$('#pLinkList').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; pf.links.splice(Number(b.closest('.p-link').dataset.i), 1); renderLinkList(); };
+$('#pLinkAdd').onclick = () => { pf.links.push({ label: '', url: '' }); renderLinkList(); $('#pLinkList .p-link:last-child .ur').focus(); };
+
+function resetPresentForm() {
+  pf.id = null; pf.photos = []; pf.links = []; pf.owner = '';
+  $('#presentForm').reset(); syncKind(); renderPhotoList(); renderLinkList();
+  $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; $('#pErr').textContent = '';
+}
+async function openPresentForm(editId) {
+  $('#pDone').hidden = true; $('#presentForm').hidden = false; renderMine();
+  if (!editId) { if (pf.id) resetPresentForm(); return; }
+  if (pf.id === editId) return;
+  try {
+    const d = await getDoc(doc(db, 'presents', editId));
+    if (!d.exists()) { toast('발표 자료를 찾지 못했어요'); return resetPresentForm(); }
+    const x = d.data(), photos = await photosOf({ id: editId, nPhotos: x.nPhotos || 0, updatedAt: x.updatedAt });
+    resetPresentForm();
+    pf.id = editId; pf.owner = x.owner || ''; pf.photos = photos.map((p) => ({ ...p })); pf.links = (x.links || []).map((l) => ({ label: l.label || '', url: l.url || '' }));
+    document.querySelector(`input[name=pKind][value=${x.kind === 'group' ? 'group' : 'solo'}]`).checked = true; syncKind();
+    $('#pSid').value = x.sid || ''; $('#pName').value = x.name || ''; $('#pTitle').value = x.title || ''; $('#pBody').value = x.body || '';
+    renderPhotoList(); renderLinkList();
+    $('#pEditNote').hidden = false; $('#pSubmit').textContent = '고친 내용 저장';
+    urlCls = clsOf(editId); renderFormCls();
+  } catch (err) { console.error(err); toast('발표 자료를 불러오지 못했어요'); }
+}
+$('#pNewInstead').onclick = () => { location.hash = submitHash(formCls(), 'present'); resetPresentForm(); };
+function formPresent() {
+  return {
+    sid: $('#pSid').value.trim(), name: $('#pName').value.trim(), kind: pKind(), title: $('#pTitle').value.trim(), body: $('#pBody').value.trim(),
+    links: pf.links.map((l) => ({ label: l.label.trim().slice(0, 40), url: l.url.trim().slice(0, 500) })).filter((l) => l.url),
+  };
+}
+function checkPresent(x) {
+  if (!x.sid) return '학번을 적어 주세요.';
+  if (!/^[0-9]{4,6}$/.test(x.sid)) return '학번은 숫자 4~6자리로 적어 주세요. 예: 20101';
+  if (!x.name) return x.kind === 'group' ? '모둠 이름과 모둠원을 적어 주세요.' : '이름을 적어 주세요.';
+  if (!x.title) return '발표 제목을 적어 주세요.';
+  if (!x.body && !pf.photos.length && !x.links.length) return '발표 내용, 사진, 링크 중 하나는 넣어 주세요.';
+  const bad = x.links.find((l) => !safeUrl(l.url)); if (bad) return `링크 주소를 확인해 주세요: ${bad.url}`;
+  return '';
+}
+$('#pPreview').onclick = () => {
+  const x = formPresent(); if (!x.title) { $('#pErr').textContent = '발표 제목을 적으면 미리 볼 수 있어요.'; return; }
+  $('#pErr').textContent = '';
+  openDeck([{ ...x, id: 'preview', cls: formCls(), photos: pf.photos }], 0);
+};
+async function makeThumb() {
+  if (!pf.photos.length) return '';
+  try { return fitJpeg(await loadImg(pf.photos[0].src), 480, 40000); } catch { return ''; }
+}
+$('#presentForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const x = formPresent(), bad = checkPresent(x);
+  if (bad) { $('#pErr').textContent = bad; return; }
+  const btn = $('#pSubmit'); btn.disabled = true; $('#pErr').textContent = ''; const label0 = btn.textContent; btn.textContent = '올리는 중…';
+  try {
+    const user = auth.currentUser || (await signInAnonymously(auth)).user;
+    const data = { ...x, thumb: await makeThumb(), nPhotos: pf.photos.length, updatedAt: serverTimestamp() };
+    const photos = { photos: pf.photos.map((p) => p.src), caps: pf.photos.map((p) => p.cap.trim().slice(0, 60)) };
+    const bt = writeBatch(db);
+    if (pf.id) {
+      bt.update(doc(db, 'presents', pf.id), data);
+      bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: pf.owner || user.uid });
+    } else {
+      pf.id = newId('presents', formCls());
+      bt.set(doc(db, 'presents', pf.id), { ...data, owner: user.uid, hidden: false, order: 0, createdAt: serverTimestamp() });
+      bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: user.uid });
+      pf.owner = user.uid;
+    }
+    await bt.commit();
+    if (!myPresents.includes(pf.id)) { myPresents.push(pf.id); saveMine(); }
+    $('#presentForm').hidden = true; $('#pDone').hidden = false; renderMine();
+    $('#pDone').dataset.id = pf.id;
+  } catch (err) {
+    console.error(err); if (!pf.owner) pf.id = null;
+    $('#pErr').textContent = err.code === 'permission-denied' ? '저장 권한이 없어요. 선생님께 알려 주세요.' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
+  } finally { btn.disabled = false; btn.textContent = label0; }
+});
+async function viewOne(id) {
+  try { const d = await getDoc(doc(db, 'presents', id)); if (d.exists()) openDeck([toEntry(d)], 0); } catch { toast('발표 화면을 열지 못했어요'); }
+}
+$('#pDoneView').onclick = () => viewOne($('#pDone').dataset.id);
+$('#pDoneEdit').onclick = () => { $('#pDone').hidden = true; $('#presentForm').hidden = false; };
+$('#pDoneNew').onclick = () => { resetPresentForm(); $('#pDone').hidden = true; $('#presentForm').hidden = false; location.hash = submitHash(formCls(), 'present'); };
+async function renderMine() {
+  if (isTeacher || !myPresents.length) { $('#pMine').innerHTML = ''; return; }
+  const rows = (await Promise.all(myPresents.map(async (id) => { try { const d = await getDoc(doc(db, 'presents', id)); return d.exists() ? { id, ...d.data() } : null; } catch { return null; } }))).filter(Boolean);
+  myPresents = rows.map((r) => r.id); saveMine();
+  $('#pMine').innerHTML = rows.length ? `<div class="p-mine"><b>📂 이 휴대폰에서 올린 발표</b>${rows.map((r) => `<div class="row" data-id="${esc(r.id)}"><span class="t">${esc(r.title)}</span>
+    <button type="button" class="sm" data-a="view">보기</button><button type="button" class="sm" data-a="edit">고치기</button><button type="button" class="sm danger" data-a="del">삭제</button></div>`).join('')}<div id="pMineBox"></div></div>` : '';
+}
+$('#pMine').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b || !b.dataset.a) return; const id = b.closest('[data-id]').dataset.id;
+  if (b.dataset.a === 'view') viewOne(id);
+  if (b.dataset.a === 'edit') location.hash = `present?edit=${encodeURIComponent(id)}`;
+  if (b.dataset.a === 'del') confirmBox($('#pMineBox'), '이 발표 자료를 지울까요? 지우면 되돌릴 수 없어요.', async () => {
+    const bt = writeBatch(db); bt.delete(doc(db, 'presentPhotos', id)); bt.delete(doc(db, 'presents', id)); await bt.commit();
+    myPresents = myPresents.filter((x) => x !== id); saveMine(); if (pf.id === id) resetPresentForm(); renderMine(); toast('지웠어요');
+  }, '지우기');
+};
+syncKind(); renderPhotoList(); renderLinkList();
+
+/* --- 교사 관리: 발표 자료 --- */
+function renderTeacherPresent() {
+  const list = presentsAll().sort(pOrder);
+  $('#ptCnt').textContent = `${list.length}개`;
+  $('#ptRows').innerHTML = list.length ? list.map((e, i) => `<tr class="${e.hidden ? 'hid' : ''}" data-id="${esc(e.id)}">
+    <td class="num"><div class="row"><b>${i + 1}</b><button type="button" class="sm" data-a="up" ${i ? '' : 'disabled'} aria-label="앞으로">▲</button><button type="button" class="sm" data-a="down" ${i < list.length - 1 ? '' : 'disabled'} aria-label="뒤로">▼</button></div></td>
+    <td>${e.thumb ? `<img class="pt-thumb" src="${e.thumb}" alt="">` : '-'}</td>
+    <td><b>${esc(e.title)}</b><div class="muted">📷 ${e.nPhotos || 0} · 🔗 ${e.links?.length || 0} · 글 ${String(e.body || '').length}자</div></td>
+    <td>${kindLabel(e.kind)} · ${esc(e.name)} <span class="muted">(${esc(e.sid)})</span></td><td class="num">${hm(e.at)}</td>
+    <td><span class="state ${e.hidden ? 'off' : 'on'}">${e.hidden ? '숨김' : '표시 중'}</span></td>
+    <td class="act"><div class="row"><button type="button" class="sm primary" data-a="view">보기</button><button type="button" class="sm" data-a="edit">고치기</button><button type="button" class="sm" data-a="toggle">${e.hidden ? '보이기' : '숨기기'}</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
+    : '<tr><td colspan="7" class="empty">아직 올라온 발표 자료가 없어요.</td></tr>';
+}
+$('#ptRows').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const tr = b.closest('tr'), id = tr.dataset.id, list = presentsAll().sort(pOrder), i = list.findIndex((x) => x.id === id), en = list[i], a = b.dataset.a;
+  try {
+    if (a === 'view') openDeck([en], 0);
+    if (a === 'edit') location.hash = `present?edit=${encodeURIComponent(id)}`;
+    if (a === 'toggle') { await updateDoc(doc(db, 'presents', id), { hidden: !en.hidden }); toast(en.hidden ? '수업 화면에 다시 보여요' : '수업 화면에서 숨겼어요'); }
+    if (a === 'up' || a === 'down') {
+      const j = a === 'up' ? i - 1 : i + 1; [list[i], list[j]] = [list[j], list[i]];
+      const bt = writeBatch(db); list.forEach((x, k) => bt.update(doc(db, 'presents', x.id), { order: k + 1 })); await bt.commit();
+    }
+    if (a === 'del') confirmRow(tr);
+    if (a === 'delok') { const bt = writeBatch(db); bt.delete(doc(db, 'presentPhotos', id)); bt.delete(doc(db, 'presents', id)); await bt.commit(); toast('삭제했어요'); }
+    if (a === 'cancel') renderTeacherPresent();
+  } catch (err) { console.error(err); toast('처리하지 못했어요. 다시 시도해 주세요'); }
+};
+$('#pClearAll').onclick = () => confirmBox($('#pClearBox'), `${className ? esc(className) + ' ' : ''}발표 자료 ${presentsAll().length}개를 모두 지울까요? 발표 자료는 반별 수업 기록에 저장되지 않아서 되돌릴 수 없어요.`, async () => {
+  const ids = presentsAll().map((x) => x.id);
+  for (let i = 0; i < ids.length; i += 200) { const bt = writeBatch(db); ids.slice(i, i + 200).forEach((id) => { bt.delete(doc(db, 'presents', id)); bt.delete(doc(db, 'presentPhotos', id)); }); await bt.commit(); }
+  toast('발표 자료를 모두 지웠어요');
+});
+
 /* ================= 화면 전환 · 시작 ================= */
 function route() {
-  const V = ['class', 'intro', 'write', 'teacher'];
+  const V = ['class', 'intro', 'write', 'present', 'teacher'];
   const [h, qs] = location.hash.slice(1).split('?');
   const v = V.includes(h) ? h : 'class';
-  urlCls = (v === 'intro' || v === 'write') ? new URLSearchParams(qs || '').get('c') : null;
+  const prm = new URLSearchParams(qs || '');
+  urlCls = (v === 'intro' || v === 'write' || v === 'present') ? prm.get('c') : null;
+  if (v === 'present') openPresentForm(prm.get('edit'));
   renderFormCls();
   V.forEach((x) => ($('#v-' + x).hidden = x !== v));
   document.querySelectorAll('.topbar .nav a').forEach((l) => (l.dataset.v === v ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
   // QR로 바로 들어온 학생에게는 메뉴를 숨기고, 위쪽 메뉴를 눌러 미리보기로 들어온 경우에는 보여 줌
   let fromNav = false; try { fromNav = sessionStorage.getItem('navOpen') === '1'; } catch { /* 무시 */ }
-  $('.topbar .nav').hidden = (v === 'intro' || v === 'write') && !fromNav && !isTeacher;
+  $('.topbar .nav').hidden = (v === 'intro' || v === 'write' || v === 'present') && !fromNav && !isTeacher;
   renderQrFloat();
   window.scrollTo(0, 0);
 }
 applyCfg(); fillCfgForm(cfg); showLesson('close');
 
 if (!configured) {
-  ['class', 'intro', 'write', 'teacher'].forEach((x) => ($('#v-' + x).hidden = true));
+  ['class', 'intro', 'write', 'present', 'teacher'].forEach((x) => ($('#v-' + x).hidden = true));
   $('#setup').hidden = false;
 } else {
   document.querySelectorAll('.topbar .nav a').forEach((l) => l.addEventListener('click', () => { try { sessionStorage.setItem('navOpen', '1'); } catch { /* 무시 */ } }));
@@ -739,6 +1062,7 @@ if (!configured) {
   // 누구나 보는 데이터: 실시간으로 바로 반영
   onSnapshot(query(collection(db, 'entries'), where('hidden', '==', false)), (s) => { pubEntries = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(query(collection(db, 'intro'), where('hidden', '==', false)), (s) => { pubIntro = s.docs.map(toEntry); renderAll(); }, console.error);
+  onSnapshot(query(collection(db, 'presents'), where('hidden', '==', false)), (s) => { pubPresents = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
   onSnapshot(doc(db, 'settings', 'picks'), (d) => { picksDoc = d.data() || {}; syncPicks(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'classes'), (d) => { classList = Array.isArray(d.data()?.list) ? d.data().list : []; renderClassPicker(); renderClassEditor(); renderAll(); });

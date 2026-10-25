@@ -62,6 +62,40 @@ service cloud.firestore {
       allow update, delete: if isTeacher();
     }
 
+    // 🎤 발표 자료: 학생은 자동 익명 로그인으로 올리고, 자기 기기(owner)에서만 다시 고치거나 지울 수 있음
+    function validPresent(d) {
+      return d.keys().hasOnly(['sid', 'name', 'kind', 'title', 'body', 'links', 'thumb', 'nPhotos', 'owner', 'hidden', 'order', 'createdAt', 'updatedAt'])
+        && validSid(d.sid) && text(d.name, 60) && d.kind in ['solo', 'group'] && text(d.title, 60)
+        && d.body is string && d.body.size() <= 3000
+        && d.links is list && d.links.size() <= 3
+        && d.thumb is string && d.thumb.size() <= 60000
+        && d.nPhotos is int && d.nPhotos >= 0 && d.nPhotos <= 4
+        && d.updatedAt == request.time;
+    }
+    match /presents/{id} {
+      allow read: if resource.data.hidden == false || isTeacher();
+      allow create: if isTeacher() || (request.auth != null && validPresent(request.resource.data)
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.hidden == false
+        && request.resource.data.order == 0
+        && request.resource.data.createdAt == request.time);
+      allow update: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid
+        && validPresent(request.resource.data)
+        && request.resource.data.diff(resource.data).unchangedKeys().hasAll(['owner', 'hidden', 'order', 'createdAt']));
+      allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
+    }
+    // 발표 사진 (발표 화면을 열 때만 불러옴)
+    match /presentPhotos/{id} {
+      allow read: if true;
+      allow create, update: if isTeacher() || (request.auth != null
+        && request.resource.data.keys().hasOnly(['photos', 'caps', 'owner'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.photos is list && request.resource.data.photos.size() <= 4
+        && request.resource.data.caps is list && request.resource.data.caps.size() <= 4
+        && getAfter(/databases/$(database)/documents/presents/$(id)).data.owner == request.auth.uid);
+      allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
+    }
+
     // 반별 수업 기록 (학생 이름 포함): 교사만
     match /archives/{id} {
       allow read, write: if isTeacher();
