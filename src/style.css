@@ -401,3 +401,11 @@ body.deck-open{overflow:hidden}
 .sl-text:not(.has-photo) .sl-body{align-items:center;text-align:center}
 .sl-text:not(.has-photo) .sl-body ul{text-align:left}
 .sl,.pinfo b,.sl-title h2{word-break:keep-all}
+.warn-box{background:var(--warn-bg);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px 14px;font-weight:600;margin-bottom:10px}
+.sl-end .sl-in{flex-direction:column;gap:3vmin}
+.sl-gal{flex:1;min-height:0;display:flex;gap:3vmin}
+.sl-lns{display:flex;gap:3vmin;justify-content:center;flex-wrap:wrap}
+.sl-end:not(.has-ph) .sl-lns{flex:1;align-items:center}
+.sl-end.has-ph .sl-link{flex-direction:row;padding:1.6vmin 2.4vmin;max-width:none;gap:2vmin}
+.sl-end.has-ph .sl-link img{width:min(16vmin,160px)}
+.sl-end.has-ph .sl-link b{font-size:clamp(14px,2.4vmin,26px)}

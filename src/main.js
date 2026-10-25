@@ -595,7 +595,7 @@ async function enterTeacher() {
     onSnapshot(collection(db, 'entries'), (s) => { allEntries = s.docs.map(toEntry); renderAll(); }, onErr),
     onSnapshot(collection(db, 'entryNames'), (s) => { names = new Map(s.docs.map((d) => [d.id, d.data()])); renderAll(); }, onErr),
     onSnapshot(collection(db, 'intro'), (s) => { allIntro = s.docs.map(toEntry); renderAll(); }, onErr),
-    onSnapshot(collection(db, 'presents'), (s) => { allPresents = s.docs.map(toEntry); renderAll(); }, onErr),
+    onSnapshot(collection(db, 'presents'), (s) => { rulesMissing = false; allPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); }),
     onSnapshot(query(collection(db, 'archives'), orderBy('savedAt', 'desc')), (s) => { archives = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })); renderArchives(); }, onErr),
   ];
   fillCfgForm(cfg); renderAll();
@@ -728,6 +728,8 @@ $('#modeBtn').onclick = () => setMode(document.documentElement.dataset.mode === 
    presentPhotos/{같은 ID}: 큰 사진들과 설명 — 발표 화면을 열 때만 불러옴
    학생은 자동 익명 로그인(owner)으로 자기 휴대폰에서 다시 고칠 수 있음 */
 const P_MAX_PHOTOS = 4, P_MAX_LINKS = 3;
+let rulesMissing = false;   // Firebase 규칙에 발표 자료 부분이 아직 없을 때
+const RULES_MSG = '⚠️ Firebase 규칙에 발표 자료 부분이 아직 게시되지 않았어요. Firebase 콘솔 → Firestore Database → 규칙 탭에 새 firestore.rules 내용을 전부 붙여넣고 [게시]를 눌러 주세요. 게시 후 1분쯤 지나면 학생들이 올릴 수 있어요.';
 const presentsAll = () => (isTeacher ? allPresents : pubPresents).filter(inCls);
 const pOrder = (a, b) => (a.order || 0) - (b.order || 0) || ts(a) - ts(b);
 const presentsShown = () => presentsAll().filter((e) => !e.hidden).sort(pOrder);
@@ -745,7 +747,7 @@ function renderPresent() {
       <div class="pthumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : '<span>🎤</span>'}<em>${i + 1}</em></div>
       <div class="pinfo"><b>${esc(e.title)}</b><span><i class="pk ${e.kind === 'group' ? 'g' : ''}">${kindLabel(e.kind)}</i> ${esc(e.name)}</span>
       <small>${e.nPhotos ? `📷 ${e.nPhotos}` : ''}${e.links?.length ? ` 🔗 ${e.links.length}` : ''} · ▶ 발표 시작</small></div></button>`).join('')
-    : '<div class="empty">아직 올라온 발표 자료가 없어요. 오른쪽 위 QR 코드로 학생·모둠이 발표 자료를 올리게 해 보세요.</div>';
+    : `<div class="empty">${rulesMissing ? RULES_MSG : '아직 올라온 발표 자료가 없어요. 오른쪽 위 QR 코드로 학생·모둠이 발표 자료를 올리게 해 보세요.'}</div>`;
 }
 $('#pGrid').onclick = (e) => { const b = e.target.closest('.pcard'); if (b) openDeck(presentsShown(), Number(b.dataset.i)); };
 $('#pPlayAll').onclick = () => openDeck(presentsShown(), 0);
@@ -777,6 +779,19 @@ function blockHTML(b) {
   return html + (inList ? '</ul>' : '');
 }
 const fig = (ph, cls = '') => (ph ? `<figure class="${cls}"><img src="${ph.src}" alt="">${ph.cap ? `<figcaption>${esc(ph.cap)}</figcaption>` : ''}</figure>` : '');
+// 내용 덩어리를 글 길이가 비슷하게 최대 n장으로 묶기
+function groupBlocks(blocks, n) {
+  if (blocks.length <= n) return blocks.map((b) => [b]);
+  const total = blocks.reduce((a, b) => a + b.length, 0), groups = [];
+  let cur = [], acc = 0;
+  blocks.forEach((b, i) => {
+    cur.push(b); acc += b.length;
+    const left = blocks.length - i - 1, slotsLeft = n - groups.length - 1;
+    if (slotsLeft > 0 && (acc >= (total / n) * (groups.length + 1) || left === slotsLeft)) { groups.push(cur); cur = []; }
+  });
+  if (cur.length) groups.push(cur);
+  return groups;
+}
 async function buildSlides(p) {
   const photos = await photosOf(p), blocks = blocksOf(p.body), links = (p.links || []).map((l) => ({ ...l, href: safeUrl(l.url) })).filter((l) => l.href);
   const head = `<div class="sl-head">${esc(p.title)}</div>`;
@@ -786,18 +801,18 @@ async function buildSlides(p) {
   slides.push(`<div class="sl sl-title ${cover ? 'has-photo' : ''}"><div class="sl-tx">
       <span class="sl-kind">${kindLabel(p.kind)} 발표${p.cls ? ` · ${esc(p.cls)}` : ''}</span>
       <h2>${esc(p.title)}</h2><div class="sl-by">${esc(p.name)}${p.sid ? ` <small>(${esc(p.sid)})</small>` : ''}</div></div>${fig(cover)}</div>`);
-  blocks.forEach((b) => {
+  // 발표 화면은 5장 안팎: 표지 1 + 내용 최대 3 + (남은 사진·링크) 1
+  for (const g of groupBlocks(blocks, 3)) {
     const ph = rest.shift();
-    slides.push(`<div class="sl sl-text ${ph ? 'has-photo' : ''}">${head}<div class="sl-in"><div class="sl-body">${blockHTML(b)}</div>${fig(ph)}</div></div>`);
-  });
-  for (let i = 0; i < rest.length; i += 2) {
-    const two = rest.slice(i, i + 2);
-    slides.push(`<div class="sl sl-photos n${two.length}">${head}<div class="sl-in">${two.map((x) => fig(x)).join('')}</div></div>`);
+    slides.push(`<div class="sl sl-text ${ph ? 'has-photo' : ''}">${head}<div class="sl-in"><div class="sl-body">${g.map(blockHTML).join('')}</div>${fig(ph)}</div></div>`);
   }
-  if (links.length) {
+  if (rest.length || links.length) {
     const qrs = await Promise.all(links.map((l) => QRCode.toDataURL(l.href, { width: 360, margin: 1 }).catch(() => '')));
-    slides.push(`<div class="sl sl-links">${head}<div class="sl-in n${links.length}">${links.map((l, i) => `<a class="sl-link" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">
-        ${qrs[i] ? `<img src="${qrs[i]}" alt="링크 QR 코드">` : ''}<b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span></a>`).join('')}</div></div>`);
+    const linkHTML = links.map((l, i) => `<a class="sl-link" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">
+        ${qrs[i] ? `<img src="${qrs[i]}" alt="링크 QR 코드">` : ''}<b>${esc(l.label || '참고 링크')}</b><span>${esc(shortUrl(l.href))}</span></a>`).join('');
+    slides.push(`<div class="sl sl-end ${rest.length ? 'has-ph' : ''} ${links.length ? 'has-ln' : ''}">${head}<div class="sl-in">
+      ${rest.length ? `<div class="sl-gal n${rest.length}">${rest.map((x) => fig(x)).join('')}</div>` : ''}
+      ${links.length ? `<div class="sl-lns">${linkHTML}</div>` : ''}</div></div>`);
   }
   return slides;
 }
@@ -971,7 +986,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
     $('#pDone').dataset.id = pf.id;
   } catch (err) {
     console.error(err); if (!pf.owner) pf.id = null;
-    $('#pErr').textContent = err.code === 'permission-denied' ? '저장 권한이 없어요. 선생님께 알려 주세요.' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
+    $('#pErr').textContent = err.code === 'permission-denied' ? '저장 권한이 없어요. 선생님께 알려 주세요. (선생님: Firebase 규칙에 발표 자료 부분을 게시해야 해요)' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
   } finally { btn.disabled = false; btn.textContent = label0; }
 });
 async function viewOne(id) {
@@ -1002,6 +1017,7 @@ syncKind(); renderPhotoList(); renderLinkList();
 function renderTeacherPresent() {
   const list = presentsAll().sort(pOrder);
   $('#ptCnt').textContent = `${list.length}개`;
+  $('#ptWarn').hidden = !rulesMissing; $('#ptWarn').textContent = RULES_MSG;
   $('#ptRows').innerHTML = list.length ? list.map((e, i) => `<tr class="${e.hidden ? 'hid' : ''}" data-id="${esc(e.id)}">
     <td class="num"><div class="row"><b>${i + 1}</b><button type="button" class="sm" data-a="up" ${i ? '' : 'disabled'} aria-label="앞으로">▲</button><button type="button" class="sm" data-a="down" ${i < list.length - 1 ? '' : 'disabled'} aria-label="뒤로">▼</button></div></td>
     <td>${e.thumb ? `<img class="pt-thumb" src="${e.thumb}" alt="">` : '-'}</td>
@@ -1062,7 +1078,7 @@ if (!configured) {
   // 누구나 보는 데이터: 실시간으로 바로 반영
   onSnapshot(query(collection(db, 'entries'), where('hidden', '==', false)), (s) => { pubEntries = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(query(collection(db, 'intro'), where('hidden', '==', false)), (s) => { pubIntro = s.docs.map(toEntry); renderAll(); }, console.error);
-  onSnapshot(query(collection(db, 'presents'), where('hidden', '==', false)), (s) => { pubPresents = s.docs.map(toEntry); renderAll(); }, console.error);
+  onSnapshot(query(collection(db, 'presents'), where('hidden', '==', false)), (s) => { rulesMissing = false; pubPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); });
   onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
   onSnapshot(doc(db, 'settings', 'picks'), (d) => { picksDoc = d.data() || {}; syncPicks(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'classes'), (d) => { classList = Array.isArray(d.data()?.list) ? d.data().list : []; renderClassPicker(); renderClassEditor(); renderAll(); });
