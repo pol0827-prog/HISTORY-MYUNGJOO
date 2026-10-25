@@ -765,13 +765,20 @@ function renderPresent() {
   document.querySelectorAll('[data-prescount]').forEach((el) => (el.textContent = v.length ? ` ${v.length}개` : ''));
   $('#pCount').textContent = v.length ? `${v.length}개` : '';
   $('#pPlayAll').hidden = !v.length;
-  $('#pGrid').innerHTML = v.length ? v.map((e, i) => `<button type="button" class="pcard" data-i="${i}">
+  $('#pGrid').innerHTML = v.length ? v.map((e, i) => { const cs = commentsOf(e.id), liked = iLiked(e.id); return `<div class="pcard-w">
+      <button type="button" class="pcard" data-i="${i}">
       <div class="pthumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : '<span>🎤</span>'}<em>${i + 1}</em></div>
       <div class="pinfo"><b>${esc(e.title)}</b><span><i class="pk ${e.kind === 'group' ? 'g' : ''}">${kindLabel(e.kind)}</i> ${esc(e.name)}</span>
-      <small>💬 ${commentsOf(e.id).length} · 👏 ${likeCount(e.id)} · ▶ 발표 시작</small></div></button>`).join('')
+      <small>▶ 눌러서 발표 시작</small></div></button>
+      <div class="pc-bar"><button type="button" class="pc-like ${liked ? 'on' : ''}" data-like="${esc(e.id)}" aria-pressed="${liked}" title="칭찬하기">👏<b>${likeCount(e.id)}</b></button><span class="pc-cn">💬 댓글 ${cs.length}</span></div>
+      <div class="pc-list">${cs.length ? cs.map((c) => commentHTML(c, false)).join('') : '<div class="pc-empty">아직 댓글이 없어요</div>'}</div>
+    </div>`; }).join('')
     : `<div class="empty">${rulesMissing ? RULES_MSG : '아직 올라온 발표 자료가 없어요. 오른쪽 위 QR 코드로 학생·모둠이 발표 자료를 올리게 해 보세요.'}</div>`;
 }
-$('#pGrid').onclick = (e) => { const b = e.target.closest('.pcard'); if (b) openDeck(presentsShown(), Number(b.dataset.i)); };
+$('#pGrid').onclick = (e) => {
+  const l = e.target.closest('[data-like]'); if (l) return toggleLike(l.dataset.like);
+  const b = e.target.closest('.pcard'); if (b) openDeck(presentsShown(), Number(b.dataset.i));
+};
 $('#pPlayAll').onclick = () => openDeck(presentsShown(), 0);
 
 /* --- 발표 화면 (슬라이드) --- */
