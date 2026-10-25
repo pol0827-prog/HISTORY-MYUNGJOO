@@ -465,3 +465,4 @@ body.deck-open{overflow:hidden}
 .t-guide b{width:100%;font-size:14px}
 .t-guide span{border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--name);font-weight:600}
 .t-guide span{border:none;padding:0 4px 0 0;color:var(--fg);font-weight:500}.t-guide span:not(:last-child)::after{content:" ·";color:var(--muted)}
+.ls-n{font-variant-numeric:tabular-nums}

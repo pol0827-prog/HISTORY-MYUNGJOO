@@ -762,7 +762,7 @@ const shortUrl = (u) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, ''
 /* --- 수업 화면: 발표 자료 카드 --- */
 function renderPresent() {
   const v = presentsShown();
-  $('#cPres').textContent = v.length;
+  document.querySelectorAll('[data-prescount]').forEach((el) => (el.textContent = v.length ? ` ${v.length}개` : ''));
   $('#pCount').textContent = v.length ? `${v.length}개` : '';
   $('#pPlayAll').hidden = !v.length;
   $('#pGrid').innerHTML = v.length ? v.map((e, i) => `<button type="button" class="pcard" data-i="${i}">
