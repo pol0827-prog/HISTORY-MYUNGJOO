@@ -36,6 +36,7 @@ let isTeacher = false;
 let pubEntries = [], allEntries = [], names = new Map();   // 배움 마무리
 let pubIntro = [], allIntro = [];                         // 배움 시작
 let pubPresents = [], allPresents = [];                   // 발표 자료
+let pubComments = [], allComments = [], cNames = new Map(), likes = [];   // 발표 댓글 · 칭찬
 let picks = { teacher: null, best: [null, null, null] };
 let aiSel = { id: null, reason: '' };
 let cfg = { ...PRESETS.history };
@@ -151,7 +152,7 @@ function renderIntro() {
   $('#iList').innerHTML = v.length ? [...v].sort((a, b) => a.sid.localeCompare(b.sid)).map((e) => `<div class="card"><div class="who">${esc(e.sid)} ${esc(e.name)}</div><div style="margin-top:4px">💡 단어1: ${esc(e.w1)} / 단어2: ${esc(e.w2)}</div></div>`).join('')
     : '<div class="empty">아직 제출이 없어요.</div>';
 }
-function renderAll() { renderClose(); renderIntro(); renderPresent(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); } }
+function renderAll() { renderClose(); renderIntro(); renderPresent(); renderTalk(); renderDeckTalk(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); renderTeacherTalk(); } }
 
 $('#btnRefresh').onclick = async () => {
   try {
@@ -191,7 +192,7 @@ async function renderQrFloat() {
   $('#qfToggle').textContent = 'QR 접기';
   $('#qfTitle').textContent = { intro: '🚪 배움 시작 제출', present: '🎤 발표 자료 올리기' }[lesson] || '🏁 배움 마무리 제출';
   const url = linkFor(submitHash());
-  $('#qfCap').textContent = className ? `${className} 전용 · 휴대폰 카메라로 찍으세요` : '휴대폰 카메라로 찍으세요';
+  $('#qfCap').textContent = (className ? `${className} 전용 · ` : '') + (lesson === 'present' ? '자료 올리기와 친구 발표 댓글 모두 여기서' : '휴대폰 카메라로 찍으세요');
   if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }
 }
 $('#qfToggle').onclick = () => { qfMini = true; renderQrFloat(); };
@@ -601,6 +602,8 @@ async function enterTeacher() {
     onSnapshot(collection(db, 'entries'), (s) => { allEntries = s.docs.map(toEntry); renderAll(); }, onErr),
     onSnapshot(collection(db, 'entryNames'), (s) => { names = new Map(s.docs.map((d) => [d.id, d.data()])); renderAll(); }, onErr),
     onSnapshot(collection(db, 'intro'), (s) => { allIntro = s.docs.map(toEntry); renderAll(); }, onErr),
+    onSnapshot(collection(db, 'pcomments'), (s) => { allComments = s.docs.map(toEntry); renderAll(); }, console.error),
+    onSnapshot(collection(db, 'pcommentNames'), (s) => { cNames = new Map(s.docs.map((d) => [d.id, d.data()])); renderAll(); }, console.error),
     onSnapshot(collection(db, 'presents'), (s) => { rulesMissing = false; allPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); }),
     onSnapshot(query(collection(db, 'archives'), orderBy('savedAt', 'desc')), (s) => { archives = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })); renderArchives(); }, onErr),
   ];
@@ -608,7 +611,7 @@ async function enterTeacher() {
 }
 function leaveTeacher() {
   isTeacher = false; teacherUnsubs.forEach((u) => u()); teacherUnsubs = [];
-  allEntries = []; names = new Map(); allIntro = []; allPresents = [];
+  allEntries = []; names = new Map(); allIntro = []; allPresents = []; allComments = []; cNames = new Map();
   $('#lock').hidden = false; $('#tBody').hidden = true; renderAll();
 }
 
@@ -765,7 +768,7 @@ function renderPresent() {
   $('#pGrid').innerHTML = v.length ? v.map((e, i) => `<button type="button" class="pcard" data-i="${i}">
       <div class="pthumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : '<span>🎤</span>'}<em>${i + 1}</em></div>
       <div class="pinfo"><b>${esc(e.title)}</b><span><i class="pk ${e.kind === 'group' ? 'g' : ''}">${kindLabel(e.kind)}</i> ${esc(e.name)}</span>
-      <small>${e.nPhotos ? `📷 ${e.nPhotos}` : ''}${e.links?.length ? ` 🔗 ${e.links.length}` : ''} · ▶ 발표 시작</small></div></button>`).join('')
+      <small>💬 ${commentsOf(e.id).length} · 👏 ${likeCount(e.id)} · ▶ 발표 시작</small></div></button>`).join('')
     : `<div class="empty">${rulesMissing ? RULES_MSG : '아직 올라온 발표 자료가 없어요. 오른쪽 위 QR 코드로 학생·모둠이 발표 자료를 올리게 해 보세요.'}</div>`;
 }
 $('#pGrid').onclick = (e) => { const b = e.target.closest('.pcard'); if (b) openDeck(presentsShown(), Number(b.dataset.i)); };
@@ -869,6 +872,7 @@ function showSlide() {
   $('#dkNext').disabled = last && !next;
   requestAnimationFrame(() => document.querySelectorAll('#deckStage .sl-body, #deckStage .sl-title h2').forEach(fitText));
   $('#dkNextP')?.addEventListener('click', (e) => { e.stopPropagation(); deckGo(1); });
+  renderDeckTalk();
 }
 function deckGo(d) {
   if ($('#deck').hidden) return;
@@ -1051,7 +1055,7 @@ function renderTeacherPresent() {
   $('#ptRows').innerHTML = list.length ? list.map((e, i) => `<tr class="${e.hidden ? 'hid' : ''}" data-id="${esc(e.id)}">
     <td class="num"><div class="row"><b>${i + 1}</b><button type="button" class="sm" data-a="up" ${i ? '' : 'disabled'} aria-label="앞으로">▲</button><button type="button" class="sm" data-a="down" ${i < list.length - 1 ? '' : 'disabled'} aria-label="뒤로">▼</button></div></td>
     <td>${e.thumb ? `<img class="pt-thumb" src="${e.thumb}" alt="">` : '-'}</td>
-    <td><b>${esc(e.title)}</b><div class="muted">📷 ${e.nPhotos || 0} · 🔗 ${e.links?.length || 0} · 글 ${String(e.body || '').length}자</div></td>
+    <td><b>${esc(e.title)}</b><div class="muted">📷 ${e.nPhotos || 0} · 🔗 ${e.links?.length || 0} · 💬 ${commentsOf(e.id).length} · 👏 ${likeCount(e.id)}</div></td>
     <td>${kindLabel(e.kind)} · ${esc(e.name)} <span class="muted">(${esc(e.sid)})</span></td><td class="num">${hm(e.at)}</td>
     <td><span class="state ${e.hidden ? 'off' : 'on'}">${e.hidden ? '숨김' : '표시 중'}</span></td>
     <td class="act"><div class="row"><button type="button" class="sm primary" data-a="view">보기</button><button type="button" class="sm" data-a="edit">고치기</button><button type="button" class="sm" data-a="toggle">${e.hidden ? '보이기' : '숨기기'}</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
@@ -1069,15 +1073,132 @@ $('#ptRows').onclick = async (e) => {
       const bt = writeBatch(db); list.forEach((x, k) => bt.update(doc(db, 'presents', x.id), { order: k + 1 })); await bt.commit();
     }
     if (a === 'del') confirmRow(tr);
-    if (a === 'delok') { const bt = writeBatch(db); bt.delete(doc(db, 'presentPhotos', id)); bt.delete(doc(db, 'presents', id)); await bt.commit(); toast('삭제했어요'); }
+    if (a === 'delok') { const bt = writeBatch(db); bt.delete(doc(db, 'presentPhotos', id)); bt.delete(doc(db, 'presents', id)); deleteTalkOps(bt, id); await bt.commit(); toast('삭제했어요'); }
     if (a === 'cancel') renderTeacherPresent();
   } catch (err) { console.error(err); toast('처리하지 못했어요. 다시 시도해 주세요'); }
 };
 $('#pClearAll').onclick = () => confirmBox($('#pClearBox'), `${className ? esc(className) + ' ' : ''}발표 자료 ${presentsAll().length}개를 모두 지울까요? 발표 자료는 반별 수업 기록에 저장되지 않아서 되돌릴 수 없어요.`, async () => {
   const ids = presentsAll().map((x) => x.id);
-  for (let i = 0; i < ids.length; i += 200) { const bt = writeBatch(db); ids.slice(i, i + 200).forEach((id) => { bt.delete(doc(db, 'presents', id)); bt.delete(doc(db, 'presentPhotos', id)); }); await bt.commit(); }
+  for (const id of ids) { const bt = writeBatch(db); bt.delete(doc(db, 'presents', id)); bt.delete(doc(db, 'presentPhotos', id)); deleteTalkOps(bt, id); await bt.commit(); }
   toast('발표 자료를 모두 지웠어요');
 });
+
+/* ================= 💬 발표 댓글 · 👏 칭찬 =================
+   pcomments/{반~ID}     : 댓글 (발표 ID, 학번, 종류, 내용) — 이름은 pcommentNames(교사만)
+   presentLikes/{발표ID_기기} : 칭찬 (기기마다 발표 하나에 한 번) */
+const T_ICON = { 내용: '📝', '느낀 점': '💭', '배운 점': '💡', 소감: '🌱', 질문: '❓' };
+const commentsAll = () => (isTeacher ? allComments.map((c) => ({ ...c, name: cNames.get(c.id)?.name || '' })) : pubComments);
+const commentsOf = (pid) => commentsAll().filter((c) => c.pres === pid && !c.hidden).sort((a, b) => ts(b) - ts(a));
+const likeCount = (pid) => likes.filter((l) => l.pres === pid).length;
+const myLikeId = (pid) => (auth.currentUser ? `${pid}_${auth.currentUser.uid}` : '');
+const iLiked = (pid) => !!myLikeId(pid) && likes.some((l) => l.id === myLikeId(pid));
+const commentHTML = (c, withName) => `<div class="t-c"><div class="t-ch"><span class="t-type">${T_ICON[c.type] || '💬'} ${esc(c.type)}</span><span class="no">${esc(c.sid)}</span>${withName && c.name ? `<b>${esc(c.name)}</b>` : ''}<small>${hm(c.at)}</small></div><p>${esc(c.body)}</p></div>`;
+
+async function toggleLike(pid) {
+  try {
+    const user = auth.currentUser || (await signInAnonymously(auth)).user;
+    const id = `${pid}_${user.uid}`;
+    if (likes.some((l) => l.id === id)) await deleteDoc(doc(db, 'presentLikes', id));
+    else { await setDoc(doc(db, 'presentLikes', id), { pres: pid, uid: user.uid, at: serverTimestamp() }); toast('👏 칭찬을 보냈어요'); }
+  } catch (err) { console.error(err); toast(err.code === 'permission-denied' ? '칭찬을 저장하지 못했어요. 선생님께 알려 주세요' : '칭찬을 보내지 못했어요. 다시 눌러 주세요'); }
+}
+
+/* --- 학생 화면: 탭 --- */
+let pTab = 'up', talkPid = null;
+function setPTab(t) {
+  pTab = t === 'talk' ? 'talk' : 'up';
+  document.querySelectorAll('[data-ptab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.ptab === pTab));
+  $('#pUp').hidden = pTab !== 'up'; $('#pTalk').hidden = pTab !== 'talk';
+  renderTalk();
+}
+document.querySelectorAll('[data-ptab]').forEach((b) => (b.onclick = () => setPTab(b.dataset.ptab)));
+const talkList = () => (isTeacher ? allPresents : pubPresents).filter((p) => clsOf(p.id) === formCls() && !p.hidden).sort(pOrder);
+function renderTalk() {
+  if ($('#v-present').hidden || pTab !== 'talk') return;
+  const list = talkList();
+  if (talkPid && !list.some((p) => p.id === talkPid)) talkPid = null;
+  $('#tList').innerHTML = list.length ? list.map((p, i) => `<button type="button" class="t-item ${p.id === talkPid ? 'on' : ''}" data-id="${esc(p.id)}">
+      <em>${i + 1}</em><span><b>${esc(p.name)}</b><small>${esc(p.title)}</small></span><i>💬 ${commentsOf(p.id).length} · 👏 ${likeCount(p.id)}</i></button>`).join('')
+    : `<div class="empty">${rulesMissing ? RULES_MSG : '아직 올라온 발표 자료가 없어요.'}</div>`;
+  const p = list.find((x) => x.id === talkPid);
+  $('#tPick').hidden = !p; if (!p) return;
+  const liked = iLiked(p.id), cs = commentsOf(p.id);
+  $('#tSel').innerHTML = `<div><span class="pk ${p.kind === 'group' ? 'g' : ''}">${kindLabel(p.kind)}</span> <b>${esc(p.name)}</b><div class="t-title">${esc(p.title)}</div></div>
+    <div class="row"><button type="button" class="t-like ${liked ? 'on' : ''}" id="tLike" aria-pressed="${liked}">👏 ${liked ? '칭찬했어요' : '칭찬하기'} <b>${likeCount(p.id)}</b></button><button type="button" class="sm" id="tView">발표 화면 보기</button></div>`;
+  $('#tCnt').textContent = `${cs.length}개`;
+  $('#tComments').innerHTML = cs.length ? cs.map((c) => commentHTML(c, false)).join('') : '<div class="empty">첫 댓글을 남겨 주세요.</div>';
+  $('#tLike').onclick = () => toggleLike(p.id);
+  $('#tView').onclick = () => openDeck([p], 0);
+}
+$('#tList').onclick = (e) => {
+  const b = e.target.closest('.t-item'); if (!b) return;
+  talkPid = b.dataset.id; renderTalk(); $('#tSel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+$('#talkForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const sid = $('#tSid').value.trim(), name = $('#tName').value.trim(), body = $('#talkBody').value.trim();
+  const type = document.querySelector('input[name=tType]:checked')?.value || '내용';
+  const bad = checkStudent(sid, name) || (!body ? '댓글을 적어 주세요.' : '') || (!talkPid ? '댓글을 달 발표를 골라 주세요.' : '');
+  if (bad) { $('#tErr').textContent = bad; return; }
+  const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#tErr').textContent = '';
+  try {
+    const ref = doc(db, 'pcomments', newId('pcomments', clsOf(talkPid))), bt = writeBatch(db);
+    bt.set(ref, { pres: talkPid, sid, type, body, hidden: false, createdAt: serverTimestamp() });
+    bt.set(doc(db, 'pcommentNames', ref.id), { sid, name });
+    await bt.commit();
+    $('#talkBody').value = ''; toast('댓글을 달았어요');   // 학번·이름은 남겨 두어 다음 발표에도 바로 쓰게
+  } catch (err) { console.error(err); $('#tErr').textContent = err.code === 'permission-denied' ? '저장 권한이 없어요. 선생님께 알려 주세요. (선생님: Firebase 규칙을 새로 게시해야 해요)' : '댓글을 달지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
+  finally { btn.disabled = false; }
+});
+
+/* --- 발표 화면: 칭찬 · 댓글 옆 칸 --- */
+let sideOpen = false;
+function renderDeckTalk() {
+  if ($('#deck').hidden) return;
+  const p = deck.list[deck.pi]; const real = p && p.id !== 'preview';
+  $('#dkLike').hidden = $('#dkTalk').hidden = !real;
+  if (!real) { $('#deckSide').hidden = true; return; }
+  const cs = commentsOf(p.id), liked = iLiked(p.id);
+  $('#dkLikeN').textContent = likeCount(p.id); $('#dkLike').classList.toggle('on', liked); $('#dkLike').setAttribute('aria-pressed', liked);
+  $('#dkTalkN').textContent = cs.length;
+  $('#deckSide').hidden = !sideOpen;
+  $('#dsList').innerHTML = cs.length ? cs.map((c) => commentHTML(c, false)).join('') : '<div class="empty">아직 댓글이 없어요. 학생 제출용 QR → 💬 친구 발표에 댓글에서 남길 수 있어요.</div>';
+}
+$('#dkLike').onclick = () => { const p = deck.list[deck.pi]; if (p) toggleLike(p.id); };
+$('#dkTalk').onclick = () => { sideOpen = !sideOpen; renderDeckTalk(); showSlide(); };
+$('#dsClose').onclick = () => { sideOpen = false; renderDeckTalk(); showSlide(); };
+
+/* --- 교사 관리: 댓글 --- */
+function renderTeacherTalk() {
+  const pres = presentsAll().sort(pOrder), ids = new Set(pres.map((p) => p.id)), titleOf = new Map(pres.map((p) => [p.id, p]));
+  const sel = $('#tcPres'), keep = sel.value;
+  sel.innerHTML = '<option value="">모든 발표</option>' + pres.map((p, i) => `<option value="${esc(p.id)}">${i + 1}. ${esc(p.name)} · ${esc(p.title)}</option>`).join('');
+  sel.value = ids.has(keep) ? keep : '';
+  const q = $('#tcQ').value.trim();
+  const rows = commentsAll().filter((c) => ids.has(c.pres) && (!sel.value || c.pres === sel.value) && (!q || `${c.sid} ${c.name} ${c.body}`.includes(q))).sort((a, b) => ts(b) - ts(a));
+  $('#tcCnt').textContent = `${rows.length}개`;
+  $('#tcRows').innerHTML = rows.length ? rows.map((c) => `<tr class="${c.hidden ? 'hid' : ''}" data-id="${esc(c.id)}"><td>${esc(titleOf.get(c.pres)?.name || '')}<div class="muted">${esc(titleOf.get(c.pres)?.title || '')}</div></td>
+    <td class="num">${esc(c.sid)}</td><td>${esc(c.name)}</td><td>${T_ICON[c.type] || ''} ${esc(c.type)}</td><td class="body">${esc(c.body)}</td><td class="num">${hm(c.at)}</td>
+    <td><span class="state ${c.hidden ? 'off' : 'on'}">${c.hidden ? '숨김' : '표시 중'}</span></td>
+    <td class="act"><div class="row"><button type="button" class="sm" data-a="toggle">${c.hidden ? '보이기' : '숨기기'}</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
+    : '<tr><td colspan="8" class="empty">아직 댓글이 없어요.</td></tr>';
+}
+$('#tcPres').onchange = renderTeacherTalk; $('#tcQ').oninput = renderTeacherTalk;
+$('#tcRows').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const tr = b.closest('tr'), id = tr.dataset.id, c = allComments.find((x) => x.id === id), a = b.dataset.a;
+  try {
+    if (a === 'toggle') { await updateDoc(doc(db, 'pcomments', id), { hidden: !c.hidden }); toast(c.hidden ? '다시 보여요' : '댓글을 숨겼어요'); }
+    if (a === 'del') confirmRow(tr);
+    if (a === 'delok') { const bt = writeBatch(db); bt.delete(doc(db, 'pcomments', id)); bt.delete(doc(db, 'pcommentNames', id)); await bt.commit(); toast('삭제했어요'); }
+    if (a === 'cancel') renderTeacherTalk();
+  } catch (err) { console.error(err); toast('처리하지 못했어요. 다시 시도해 주세요'); }
+};
+// 발표를 지울 때 그 발표의 댓글·칭찬도 같이 지움 (교사)
+function deleteTalkOps(bt, pid) {
+  allComments.filter((c) => c.pres === pid).forEach((c) => { bt.delete(doc(db, 'pcomments', c.id)); bt.delete(doc(db, 'pcommentNames', c.id)); });
+  likes.filter((l) => l.pres === pid).forEach((l) => bt.delete(doc(db, 'presentLikes', l.id)));
+}
 
 /* ================= 화면 전환 · 시작 ================= */
 function route() {
@@ -1086,7 +1207,7 @@ function route() {
   const v = V.includes(h) ? h : 'class';
   const prm = new URLSearchParams(qs || '');
   urlCls = (v === 'intro' || v === 'write' || v === 'present') ? prm.get('c') : null;
-  if (v === 'present') openPresentForm(prm.get('edit'));
+  if (v === 'present') { openPresentForm(prm.get('edit')); setPTab(prm.get('edit') ? 'up' : (prm.get('tab') || pTab)); }
   renderFormCls();
   V.forEach((x) => ($('#v-' + x).hidden = x !== v));
   document.querySelectorAll('.topbar .nav a').forEach((l) => (l.dataset.v === v ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
@@ -1108,6 +1229,8 @@ if (!configured) {
   // 누구나 보는 데이터: 실시간으로 바로 반영
   onSnapshot(query(collection(db, 'entries'), where('hidden', '==', false)), (s) => { pubEntries = s.docs.map(toEntry); renderAll(); }, console.error);
   onSnapshot(query(collection(db, 'intro'), where('hidden', '==', false)), (s) => { pubIntro = s.docs.map(toEntry); renderAll(); }, console.error);
+  onSnapshot(query(collection(db, 'pcomments'), where('hidden', '==', false)), (s) => { pubComments = s.docs.map(toEntry); renderAll(); }, console.error);
+  onSnapshot(collection(db, 'presentLikes'), (s) => { likes = s.docs.map((d) => ({ id: d.id, ...d.data() })); renderAll(); }, console.error);
   onSnapshot(query(collection(db, 'presents'), where('hidden', '==', false)), (s) => { rulesMissing = false; pubPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); });
   onSnapshot(doc(db, 'settings', 'config'), (d) => { cfg = { ...PRESETS.history, ...(d.data() || {}) }; applyCfg(); if (!cfgDirty) fillCfgForm(cfg); renderAll(); });
   onSnapshot(doc(db, 'settings', 'picks'), (d) => { picksDoc = d.data() || {}; syncPicks(); renderAll(); });

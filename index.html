@@ -146,6 +146,40 @@
 <!-- ===== 학생 제출 (발표 자료) ===== -->
 <div class="page" id="v-present" hidden>
   <section class="panel write">
+    <div class="p-tabs" role="tablist">
+      <button type="button" role="tab" data-ptab="up" aria-selected="true">🎤 발표 자료 올리기</button>
+      <button type="button" role="tab" data-ptab="talk" aria-selected="false">💬 친구 발표에 댓글</button>
+    </div>
+    <div id="pTalk" hidden>
+      <h1 style="font-size:22px;margin-bottom:4px">💬 친구 발표에 댓글 달기</h1>
+      <p class="muted" style="margin:0 0 14px">발표를 듣고 내용, 느낀 점, 배운 점, 소감을 남겨 주세요. 잘한 발표에는 👏 칭찬을 눌러 주세요.</p>
+      <div class="form-cls" data-formcls hidden></div>
+      <b class="p-step">① 댓글을 달 발표 고르기</b>
+      <div class="t-list" id="tList"></div>
+      <div id="tPick" hidden>
+        <div class="t-sel" id="tSel"></div>
+        <form id="talkForm">
+          <b class="p-step">② 댓글 쓰기</b>
+          <div class="row2">
+            <label>학번 <input id="tSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="예: 20101" title="숫자 4~6자리로 적어 주세요"></label>
+            <label>이름 <input id="tName" required maxlength="20" placeholder="예: 홍길동"></label>
+          </div>
+          <div class="t-types" role="radiogroup" aria-label="댓글 종류">
+            <label><input type="radio" name="tType" value="내용" checked> 📝 내용</label>
+            <label><input type="radio" name="tType" value="느낀 점"> 💭 느낀 점</label>
+            <label><input type="radio" name="tType" value="배운 점"> 💡 배운 점</label>
+            <label><input type="radio" name="tType" value="소감"> 🌱 소감</label>
+            <label><input type="radio" name="tType" value="질문"> ❓ 질문</label>
+          </div>
+          <label>댓글 <textarea id="talkBody" required maxlength="300" rows="4" placeholder="발표를 듣고 정리한 내용이나 생각을 적어 보세요."></textarea></label>
+          <button type="submit" class="primary">댓글 달기</button>
+          <div class="err" id="tErr"></div>
+        </form>
+        <b class="p-step">친구들의 댓글 <span class="muted" id="tCnt"></span></b>
+        <div class="t-comments" id="tComments"></div>
+      </div>
+    </div>
+    <div id="pUp">
     <h1 style="font-size:22px;margin-bottom:4px">🎤 발표 자료 올리기</h1>
     <p class="muted" style="margin:0 0 16px">사진, 링크, 발표 내용을 올리면 발표하기 좋은 화면으로 자동으로 만들어져요. 올린 뒤에도 이 휴대폰에서 다시 고칠 수 있어요.</p>
     <div id="pMine"></div>
@@ -178,6 +212,7 @@
       <div class="big">올리기 완료!</div>
       <div class="muted">수업 화면의 발표 자료에 올라갔어요. 이 휴대폰에서 언제든 다시 고칠 수 있어요.</div>
       <div class="row" style="justify-content:center"><button type="button" id="pDoneView">발표 화면 보기</button><button type="button" id="pDoneEdit">고치기</button><button type="button" id="pDoneNew">새로 올리기</button></div>
+    </div>
     </div>
   </section>
 </div>
@@ -235,6 +270,17 @@
         <div class="tbl-wrap"><table class="pt-tbl">
           <thead><tr><th>순서</th><th>사진</th><th>제목</th><th>발표자</th><th>올린 시각</th><th>상태</th><th>관리</th></tr></thead>
           <tbody id="ptRows"></tbody>
+        </table></div>
+      </section>
+      <section class="panel">
+        <h2>💬 발표 댓글 관리 <span class="muted" id="tcCnt"></span></h2>
+        <div class="row" style="margin-bottom:10px">
+          <select id="tcPres" aria-label="발표 고르기"><option value="">모든 발표</option></select>
+          <input id="tcQ" type="search" placeholder="학번·이름·내용 검색" aria-label="댓글 검색" style="flex:1">
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>발표</th><th>학번</th><th>이름</th><th>종류</th><th>댓글</th><th>시각</th><th>상태</th><th>관리</th></tr></thead>
+          <tbody id="tcRows"></tbody>
         </table></div>
       </section>
     </div>
@@ -445,10 +491,12 @@
   <button type="button" class="sm" id="qfBig">크게 보기</button>
 </aside>
 <div class="deck" id="deck" hidden role="dialog" aria-label="발표 화면">
-  <div class="deck-stage" id="deckStage"></div>
+  <div class="deck-main"><div class="deck-stage" id="deckStage"></div>
+  <aside class="deck-side" id="deckSide" hidden><div class="ds-head"><b>💬 친구들의 댓글</b><button type="button" class="sm" id="dsClose">닫기</button></div><div class="ds-list" id="dsList"></div></aside></div>
   <div class="deck-bar">
     <span class="deck-title" id="dkTitle"></span>
     <button type="button" id="dkPrev" aria-label="이전 화면">◀</button><span class="deck-num" id="dkNum"></span><button type="button" id="dkNext" aria-label="다음 화면">▶</button>
+    <button type="button" id="dkLike" class="dk-like">👏 <span id="dkLikeN">0</span></button><button type="button" id="dkTalk">💬 댓글 <span id="dkTalkN">0</span></button>
     <button type="button" id="dkFull">⛶ 전체 화면</button><button type="button" id="dkClose">닫기 ✕</button>
   </div>
 </div>

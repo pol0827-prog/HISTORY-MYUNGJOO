@@ -96,6 +96,37 @@ service cloud.firestore {
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
     }
 
+    // 💬 발표 댓글: 학번·종류·내용은 누구나 보고, 이름(pcommentNames)은 교사만
+    match /pcomments/{id} {
+      allow read: if resource.data.hidden == false || isTeacher();
+      allow create: if isTeacher() || (request.resource.data.keys().hasOnly(['pres', 'sid', 'type', 'body', 'hidden', 'createdAt'])
+        && request.resource.data.pres is string
+        && exists(/databases/$(database)/documents/presents/$(request.resource.data.pres))
+        && validSid(request.resource.data.sid)
+        && request.resource.data.type in ['내용', '느낀 점', '배운 점', '소감', '질문']
+        && text(request.resource.data.body, 300)
+        && request.resource.data.hidden == false
+        && request.resource.data.createdAt == request.time);
+      allow update, delete: if isTeacher();
+    }
+    match /pcommentNames/{id} {
+      allow create: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'name'])
+        && validSid(request.resource.data.sid)
+        && text(request.resource.data.name, 20)
+        && existsAfter(/databases/$(database)/documents/pcomments/$(id)));
+      allow read, update, delete: if isTeacher();
+    }
+    // 👏 칭찬: 기기(익명 로그인)마다 발표 하나에 한 번
+    match /presentLikes/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['pres', 'uid', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.pres + '_' + request.auth.uid
+        && request.resource.data.at == request.time;
+      allow delete: if isTeacher() || (request.auth != null && resource.data.uid == request.auth.uid);
+    }
+
     // 반별 수업 기록 (학생 이름 포함): 교사만
     match /archives/{id} {
       allow read, write: if isTeacher();
