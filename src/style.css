@@ -508,3 +508,19 @@ body.deck-open{overflow:hidden}
 #v-class>header.panel{flex-direction:column;justify-content:center;text-align:center}
 #v-class>header.panel .title-row{justify-content:center}
 #v-class>header.panel>.row{justify-content:center}
+.pc-reacts,.t-reacts,.dk-likes{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pc-like{font-size:24px;padding:3px 10px;gap:4px}
+.pc-like b{font-size:16px}
+.t-like{display:inline-flex;align-items:center;gap:6px;font-size:24px;padding:4px 12px;border-radius:999px}
+.t-like b{font-size:16px}
+.dk-like{display:inline-flex;align-items:center;gap:4px;font-size:20px;padding:3px 10px;border:1px solid #e3a86b;border-radius:999px;background:transparent;color:inherit}
+.dk-like b{font-size:14px}
+.dk-like.on{background:#e3a86b;color:#2a1a05}
+/* 수업 화면 머리를 크게: 넓은 교실 화면에서 양옆 빈 곳이 덜 남도록 */
+#v-class>header.panel{gap:10px;padding:18px 20px}
+#v-class>header.panel h1{font-size:clamp(24px,3.4vw,44px)}
+#v-class>header.panel .sub{font-size:clamp(14px,1.4vw,19px);margin-top:2px}
+#v-class>header.panel .emblem-img{height:clamp(72px,7vw,108px);max-width:180px}
+#v-class>header.panel>.row{gap:10px}
+#v-class>header.panel .lesson-switch button{font-size:clamp(14px,1.25vw,18px);padding:8px 16px}
+#v-class>header.panel .chip,#v-class>header.panel .cls-print{font-size:clamp(14px,1.25vw,18px);padding:8px 16px}

@@ -684,10 +684,10 @@ function posterHTML(kind, land) {
     // 배움공유: 수업 화면에 보이는 발표 전부 + 그 발표의 댓글 전부 (이름은 넣지 않음)
     const ps = presentsShown(), allC = ps.reduce((n, p) => n + commentsOf(p.id).length, 0), allL = ps.reduce((n, p) => n + likeCount(p.id), 0);
     return head('배움공유 · 친구들의 발표와 댓글') + `
-      <div class="box kws"><b>🎤 발표 ${ps.length}개</b><span>💬 댓글 ${allC}개</span><span>👏 칭찬 ${allL}번</span></div>
+      <div class="box kws"><b>🎤 발표 ${ps.length}개</b><span>💬 댓글 ${allC}개</span><span>칭찬 ${REACTS.map((r) => `${r.e} ${ps.reduce((n, p) => n + likeCount(p.id, r.k), 0)}`).join(' ')}</span></div>
       <div class="grid" style="grid-template-columns:repeat(${land ? 3 : 2},1fr)">${ps.map((p, i) => { const cs = commentsOf(p.id); return `<div class="pp">
         <div class="pp-top">${p.thumb ? `<img src="${p.thumb}" alt="">` : ''}<div><div class="pp-n">${i + 1}</div><b>${esc(p.title)}</b>
-          <div class="pp-by">${kindLabel(p.kind)} · ${esc(p.name)}</div><div class="pp-cnt">👏 ${likeCount(p.id)} · 💬 ${cs.length}</div></div></div>
+          <div class="pp-by">${kindLabel(p.kind)} · ${esc(p.name)}</div><div class="pp-cnt">${reactsText(p.id)} · 💬 ${cs.length}</div></div></div>
         ${cs.length ? `<ul>${cs.slice().reverse().map((c) => `<li><span class="id">${esc(c.sid)}</span> ${esc(c.body)}</li>`).join('')}</ul>` : '<div class="by">댓글 없음</div>'}</div>`; }).join('') || '<div class="by">올라온 발표가 없어요</div>'}</div>`;
   }
   // 게시용에는 숨김 여부와 관계없이 학생 글 전부를 학번순으로 (이름은 넣지 않음)
@@ -777,18 +777,18 @@ function renderPresent() {
   document.querySelectorAll('[data-prescount]').forEach((el) => (el.textContent = v.length ? `(${v.length}개 도착)` : ''));
   $('#pCount').textContent = v.length ? `(${v.length}개 도착)` : '';
   $('#pPlayAll').hidden = !v.length;
-  $('#pGrid').innerHTML = v.length ? v.map((e, i) => { const cs = commentsOf(e.id), liked = iLiked(e.id); return `<div class="pcard-w">
+  $('#pGrid').innerHTML = v.length ? v.map((e, i) => { const cs = commentsOf(e.id); return `<div class="pcard-w">
       <button type="button" class="pcard" data-i="${i}">
       <div class="pthumb">${e.thumb ? `<img src="${e.thumb}" alt="">` : '<span>🎤</span>'}<em>${i + 1}</em></div>
       <div class="pinfo"><b>${esc(e.title)}</b><span><i class="pk ${e.kind === 'group' ? 'g' : ''}">${kindLabel(e.kind)}</i> ${esc(e.name)}</span>
       <small>▶ 눌러서 발표 시작</small></div></button>
-      <div class="pc-bar"><button type="button" class="pc-like ${liked ? 'on' : ''}" data-like="${esc(e.id)}" aria-pressed="${liked}" title="칭찬하기">👏<b>${likeCount(e.id)}</b></button><span class="pc-cn">💬 댓글 ${cs.length}</span></div>
+      <div class="pc-bar"><div class="pc-reacts">${reactsHTML(e.id)}</div><span class="pc-cn">💬 댓글 ${cs.length}</span></div>
       <div class="pc-list">${cs.length ? cs.map((c) => commentHTML(c, false)).join('') : '<div class="pc-empty">아직 댓글이 없어요</div>'}</div>
     </div>`; }).join('')
     : `<div class="empty">${rulesMissing ? RULES_MSG : '아직 올라온 발표 자료가 없어요. 오른쪽 위 QR 코드로 학생·모둠이 발표 자료를 올리게 해 보세요.'}</div>`;
 }
 $('#pGrid').onclick = (e) => {
-  const l = e.target.closest('[data-like]'); if (l) return toggleLike(l.dataset.like);
+  const l = e.target.closest('[data-like]'); if (l) return toggleLike(l.dataset.like, l.dataset.k);
   const b = e.target.closest('.pcard'); if (b) openDeck(presentsShown(), Number(b.dataset.i));
 };
 $('#pPlayAll').onclick = () => openDeck(presentsShown(), 0);
@@ -1074,7 +1074,7 @@ function renderTeacherPresent() {
   $('#ptRows').innerHTML = list.length ? list.map((e, i) => `<tr class="${e.hidden ? 'hid' : ''}" data-id="${esc(e.id)}">
     <td class="num"><div class="row"><b>${i + 1}</b><button type="button" class="sm" data-a="up" ${i ? '' : 'disabled'} aria-label="앞으로">▲</button><button type="button" class="sm" data-a="down" ${i < list.length - 1 ? '' : 'disabled'} aria-label="뒤로">▼</button></div></td>
     <td>${e.thumb ? `<img class="pt-thumb" src="${e.thumb}" alt="">` : '-'}</td>
-    <td><b>${esc(e.title)}</b><div class="muted">📷 ${e.nPhotos || 0} · 🔗 ${e.links?.length || 0} · 💬 ${commentsOf(e.id).length} · 👏 ${likeCount(e.id)}</div></td>
+    <td><b>${esc(e.title)}</b><div class="muted">📷 ${e.nPhotos || 0} · 🔗 ${e.links?.length || 0} · 💬 ${commentsOf(e.id).length} · ${reactsText(e.id)}</div></td>
     <td>${kindLabel(e.kind)} · ${esc(e.name)} <span class="muted">(${esc(e.sid)})</span></td><td class="num">${hm(e.at)}</td>
     <td><span class="state ${e.hidden ? 'off' : 'on'}">${e.hidden ? '숨김' : '표시 중'}</span></td>
     <td class="act"><div class="row"><button type="button" class="sm primary" data-a="view">보기</button><button type="button" class="sm" data-a="edit">고치기</button><button type="button" class="sm" data-a="toggle">${e.hidden ? '보이기' : '숨기기'}</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
@@ -1108,17 +1108,22 @@ $('#pClearAll').onclick = () => confirmBox($('#pClearBox'), `${className ? esc(c
 const T_ICON = { 내용: '📝', '느낀 점': '💭', '배운 점': '💡', 소감: '🌱', 질문: '❓' };
 const commentsAll = () => (isTeacher ? allComments.map((c) => ({ ...c, name: cNames.get(c.id)?.name || '' })) : pubComments);
 const commentsOf = (pid) => commentsAll().filter((c) => c.pres === pid && !c.hidden).sort((a, b) => ts(b) - ts(a));
-const likeCount = (pid) => likes.filter((l) => l.pres === pid).length;
-const myLikeId = (pid) => (auth.currentUser ? `${pid}_${auth.currentUser.uid}` : '');
-const iLiked = (pid) => !!myLikeId(pid) && likes.some((l) => l.id === myLikeId(pid));
+// 칭찬 이모지 3가지 (기기마다 발표 하나에 이모지별로 한 번씩)
+const REACTS = [{ k: 'clap', e: '👏', t: '칭찬해요' }, { k: 'good', e: '👍', t: '최고예요' }, { k: 'heart', e: '❤️', t: '감동이에요' }];
+const kOf = (l) => l.k || 'clap';
+const likeCount = (pid, k) => likes.filter((l) => l.pres === pid && (!k || kOf(l) === k)).length;
+const iLiked = (pid, k) => !!auth.currentUser && likes.some((l) => l.pres === pid && l.uid === auth.currentUser.uid && kOf(l) === k);
+const reactsHTML = (pid, cls = 'pc-like') => REACTS.map((r) => { const on = iLiked(pid, r.k); return `<button type="button" class="${cls} ${on ? 'on' : ''}" data-like="${esc(pid)}" data-k="${r.k}" aria-pressed="${on}" title="${r.t}">${r.e}<b>${likeCount(pid, r.k)}</b></button>`; }).join('');
+const reactsText = (pid) => REACTS.map((r) => `${r.e} ${likeCount(pid, r.k)}`).join(' ');
 const commentHTML = (c, withName) => `<div class="t-c"><div class="t-ch"><span class="t-type">💬</span><span class="no">${esc(c.sid)}</span>${withName && c.name ? `<b>${esc(c.name)}</b>` : ''}<small>${hm(c.at)}</small></div><p>${esc(c.body)}</p></div>`;
 
-async function toggleLike(pid) {
+async function toggleLike(pid, k = 'clap') {
   try {
     const user = auth.currentUser || (await signInAnonymously(auth)).user;
-    const id = `${pid}_${user.uid}`;
-    if (likes.some((l) => l.id === id)) await deleteDoc(doc(db, 'presentLikes', id));
-    else { await setDoc(doc(db, 'presentLikes', id), { pres: pid, uid: user.uid, at: serverTimestamp() }); toast('👏 칭찬을 보냈어요'); }
+    const mine = likes.find((l) => l.pres === pid && l.uid === user.uid && kOf(l) === k);
+    const r = REACTS.find((x) => x.k === k) || REACTS[0];
+    if (mine) await deleteDoc(doc(db, 'presentLikes', mine.id));
+    else { await setDoc(doc(db, 'presentLikes', `${pid}_${user.uid}_${k}`), { pres: pid, uid: user.uid, k, at: serverTimestamp() }); toast(`${r.e} ${r.t}! 마음을 보냈어요`); }
   } catch (err) { console.error(err); toast(err.code === 'permission-denied' ? '칭찬을 저장하지 못했어요. 선생님께 알려 주세요' : '칭찬을 보내지 못했어요. 다시 눌러 주세요'); }
 }
 
@@ -1137,16 +1142,16 @@ function renderTalk() {
   const list = talkList();
   if (talkPid && !list.some((p) => p.id === talkPid)) talkPid = null;
   $('#tList').innerHTML = list.length ? list.map((p, i) => `<button type="button" class="t-item ${p.id === talkPid ? 'on' : ''}" data-id="${esc(p.id)}">
-      <em>${i + 1}</em><span><b>${esc(p.name)}</b><small>${esc(p.title)}</small></span><i>💬 ${commentsOf(p.id).length} · 👏 ${likeCount(p.id)}</i></button>`).join('')
+      <em>${i + 1}</em><span><b>${esc(p.name)}</b><small>${esc(p.title)}</small></span><i>💬 ${commentsOf(p.id).length} · ${reactsText(p.id)}</i></button>`).join('')
     : `<div class="empty">${rulesMissing ? RULES_MSG : '아직 올라온 발표 자료가 없어요.'}</div>`;
   const p = list.find((x) => x.id === talkPid);
   $('#tPick').hidden = !p; if (!p) return;
-  const liked = iLiked(p.id), cs = commentsOf(p.id);
+  const cs = commentsOf(p.id);
   $('#tSel').innerHTML = `<div><span class="pk ${p.kind === 'group' ? 'g' : ''}">${kindLabel(p.kind)}</span> <b>${esc(p.name)}</b><div class="t-title">${esc(p.title)}</div></div>
-    <div class="row"><button type="button" class="t-like ${liked ? 'on' : ''}" id="tLike" aria-pressed="${liked}">👏 ${liked ? '칭찬했어요' : '칭찬하기'} <b>${likeCount(p.id)}</b></button><button type="button" class="sm" id="tView">발표 화면 보기</button></div>`;
+    <div class="t-reacts">${reactsHTML(p.id, 't-like')}</div><div class="row"><button type="button" class="sm" id="tView">발표 화면 보기</button></div>`;
   $('#tCnt').textContent = `${cs.length}개`;
   $('#tComments').innerHTML = cs.length ? cs.map((c) => commentHTML(c, false)).join('') : '<div class="empty">첫 댓글을 남겨 주세요.</div>';
-  $('#tLike').onclick = () => toggleLike(p.id);
+  $('#tSel').querySelectorAll('[data-like]').forEach((b) => (b.onclick = () => toggleLike(b.dataset.like, b.dataset.k)));
   $('#tView').onclick = () => openDeck([p], 0);
 }
 $('#tList').onclick = (e) => {
@@ -1175,15 +1180,15 @@ let sideOpen = false;
 function renderDeckTalk() {
   if ($('#deck').hidden) return;
   const p = deck.list[deck.pi]; const real = p && p.id !== 'preview';
-  $('#dkLike').hidden = $('#dkTalk').hidden = !real;
+  $('#dkLikes').hidden = $('#dkTalk').hidden = !real;
   if (!real) { $('#deckSide').hidden = true; return; }
-  const cs = commentsOf(p.id), liked = iLiked(p.id);
-  $('#dkLikeN').textContent = likeCount(p.id); $('#dkLike').classList.toggle('on', liked); $('#dkLike').setAttribute('aria-pressed', liked);
+  const cs = commentsOf(p.id);
+  $('#dkLikes').innerHTML = reactsHTML(p.id, 'dk-like');
   $('#dkTalkN').textContent = cs.length;
   $('#deckSide').hidden = !sideOpen;
   $('#dsList').innerHTML = cs.length ? cs.map((c) => commentHTML(c, false)).join('') : '<div class="empty">아직 댓글이 없어요. 학생 제출용 QR → 💬 친구 발표에 댓글에서 남길 수 있어요.</div>';
 }
-$('#dkLike').onclick = () => { const p = deck.list[deck.pi]; if (p) toggleLike(p.id); };
+$('#dkLikes').onclick = (e) => { const b = e.target.closest('[data-like]'); if (b) toggleLike(b.dataset.like, b.dataset.k); };
 $('#dkTalk').onclick = () => { sideOpen = !sideOpen; renderDeckTalk(); showSlide(); };
 $('#dsClose').onclick = () => { sideOpen = false; renderDeckTalk(); showSlide(); };
 
