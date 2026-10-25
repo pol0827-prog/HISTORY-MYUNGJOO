@@ -762,8 +762,8 @@ const shortUrl = (u) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, ''
 /* --- 수업 화면: 발표 자료 카드 --- */
 function renderPresent() {
   const v = presentsShown();
-  document.querySelectorAll('[data-prescount]').forEach((el) => (el.textContent = v.length ? ` ${v.length}개` : ''));
-  $('#pCount').textContent = v.length ? `${v.length}개` : '';
+  document.querySelectorAll('[data-prescount]').forEach((el) => (el.textContent = v.length ? `(${v.length}개 도착)` : ''));
+  $('#pCount').textContent = v.length ? `(${v.length}개 도착)` : '';
   $('#pPlayAll').hidden = !v.length;
   $('#pGrid').innerHTML = v.length ? v.map((e, i) => { const cs = commentsOf(e.id), liked = iLiked(e.id); return `<div class="pcard-w">
       <button type="button" class="pcard" data-i="${i}">
