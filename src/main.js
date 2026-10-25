@@ -170,7 +170,7 @@ async function showQr(hash, title) {
 }
 // 학생 제출 링크: 반 이름이 들어가서 반마다 QR이 달라짐
 const submitHash = (c = className, l = lesson) => ({ intro: 'intro', present: 'present' }[l] || 'write') + (c ? `?c=${encodeURIComponent(c)}` : '');
-const qrTitleFor = (c = className, l = lesson) => `${c ? `[${c}] ` : ''}휴대폰으로 찍으면 ${{ intro: '연상 단어 제출', present: '발표 자료 올리기' }[l] || '일기 제출'} 화면이 열려요`;
+const qrTitleFor = (c = className, l = lesson) => `${c ? `[${c}] ` : ''}휴대폰으로 찍으면 ${{ intro: '연상 단어 제출', present: '발표 자료 올리기 및 댓글 달기' }[l] || '일기 제출'} 화면이 열려요`;
 $('#btnQR').onclick = () => showQr(submitHash(), qrTitleFor());
 // 위쪽 막대의 QR: 학생 휴대폰으로 수업 화면을 볼 때만 가끔 씀
 $('#navQr').onclick = () => showQr('class', '휴대폰으로 찍으면 수업 화면이 열려요');
@@ -190,9 +190,9 @@ async function renderQrFloat() {
   document.documentElement.dataset.qr = onClass && !qfMini ? 'open' : '';
   if (!onClass || qfMini) return;
   $('#qfToggle').textContent = 'QR 접기';
-  $('#qfTitle').textContent = { intro: '🚪 배움 시작 제출', present: '🎤 배움공유' }[lesson] || '🏁 배움 마무리 제출';
+  $('#qfTitle').textContent = { intro: '🚪 배움 시작 제출', present: '🎤 발표 자료 올리기 및 댓글 달기' }[lesson] || '🏁 배움 마무리 제출';
   const url = linkFor(submitHash());
-  $('#qfCap').textContent = (className ? `${className} 전용 · ` : '') + (lesson === 'present' ? '자료 올리기와 친구 발표 댓글 모두 여기서' : '휴대폰 카메라로 찍으세요');
+  $('#qfCap').textContent = (className ? `${className} 전용 · ` : '') + '휴대폰 카메라로 찍으세요';
   if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }
 }
 $('#qfToggle').onclick = () => { qfMini = true; renderQrFloat(); };
