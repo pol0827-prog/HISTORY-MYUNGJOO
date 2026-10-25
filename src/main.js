@@ -163,15 +163,7 @@ function renderIntro() {
 }
 function renderAll() { renderClose(); renderIntro(); renderPresent(); renderTalk(); renderDeckTalk(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); renderTeacherTalk(); } }
 
-$('#btnRefresh').onclick = async () => {
-  try {
-    const [a, b] = await Promise.all([
-      getDocsFromServer(query(collection(db, 'entries'), where('hidden', '==', false))),
-      getDocsFromServer(query(collection(db, 'intro'), where('hidden', '==', false))),
-    ]);
-    pubEntries = a.docs.map(toEntry); pubIntro = b.docs.map(toEntry); renderAll(); toast('최신 데이터를 불러왔어요');
-  } catch { toast('불러오지 못했어요. 인터넷 연결을 확인해 주세요'); }
-};
+$('#navReload').onclick = () => location.reload();
 async function showQr(hash, title) {
   const url = linkFor(hash);
   await QRCode.toCanvas($('#qr'), url, { width: 720, margin: 1 });

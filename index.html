@@ -21,7 +21,7 @@
   </section>
 </div>
 <div class="topbar"><div class="in">
-  <nav class="nav" aria-label="화면 전환"><span class="nav-cls"><a href="#class" data-v="class">📺 수업 화면</a><button type="button" class="nav-qr" id="navQr" title="수업 화면 주소 QR 코드">QR</button></span><a href="#intro" data-v="intro" class="intro-only">📝 학생 제출 양식 안내하기 (배움 시작)</a><a href="#write" data-v="write" class="close-only">📝 학생 제출 양식 안내하기 (배움 마무리)</a><a href="#present" data-v="present" class="present-only">📝 학생 제출 양식 안내하기 (배움공유)</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a></nav>
+  <nav class="nav" aria-label="화면 전환"><span class="nav-cls"><a href="#class" data-v="class">📺 수업 화면</a><button type="button" class="nav-qr" id="navQr" title="수업 화면 주소 QR 코드">QR</button></span><a href="#intro" data-v="intro" class="intro-only">📝 학생 제출 양식 안내하기 (배움 시작)</a><a href="#write" data-v="write" class="close-only">📝 학생 제출 양식 안내하기 (배움 마무리)</a><a href="#present" data-v="present" class="present-only">📝 학생 제출 양식 안내하기 (배움공유)</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a><button type="button" class="nav-reload" id="navReload" title="화면을 다시 불러와요">🔄 화면 새로고침</button></nav>
   <div class="tools">
   <button type="button" class="mode-btn qf-open" id="qfOpen" hidden>📱 학생 제출용 QR 펴기</button>
   <time class="clock" id="clock"></time>
@@ -45,7 +45,7 @@
       </div>
       <span class="chip cls-chip" id="clsChip" hidden></span>
       <span class="chip stu-chip">학생 수: <span id="cStu">0</span>명</span>
-      <button type="button" id="btnRefresh">데이터 새로고침</button><button type="button" class="cls-print" data-poster title="지금 화면을 A4·B4 한 장으로 예쁘게 정리해 인쇄">🖨️ 게시용 인쇄</button>
+      <button type="button" class="cls-print" data-poster title="지금 화면을 A4·B4 한 장으로 예쁘게 정리해 인쇄">🖨️ 게시용 인쇄</button>
       <button type="button" id="btnQR" class="primary" hidden><span class="close-only" data-t="{subject} 일기 제출 QR 코드"></span><span class="intro-only">연상 단어 제출 QR 코드</span></button>
       <img class="emblem-img" id="emblemImg" alt="" hidden><div class="emblem" id="emblemSvg" aria-hidden="true"><svg width="40" height="34" viewBox="0 0 40 34"><g fill="#c9b98a"><rect x="4" y="2" width="32" height="4" rx="1"/><rect x="7" y="8" width="4" height="20"/><rect x="18" y="8" width="4" height="20"/><rect x="29" y="8" width="4" height="20"/><rect x="2" y="29" width="36" height="4" rx="1"/></g></svg></div>
     </div>
