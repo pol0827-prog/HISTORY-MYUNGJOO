@@ -163,7 +163,7 @@ $('#btnRefresh').onclick = async () => {
 };
 async function showQr(hash, title) {
   const url = linkFor(hash);
-  await QRCode.toCanvas($('#qr'), url, { width: 240, margin: 1 });
+  await QRCode.toCanvas($('#qr'), url, { width: 720, margin: 1 });
   $('#qrUrl').textContent = url; $('#qrTitle').textContent = title; $('#qrModal').hidden = false;
 }
 // 학생 제출 링크: 반 이름이 들어가서 반마다 QR이 달라짐

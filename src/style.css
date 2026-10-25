@@ -313,3 +313,9 @@ body{margin:0}
 
 .form-cls{margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:700;color:var(--name)}
 .cls-row .qr{white-space:nowrap}
+
+/* 크게 보기 QR: 교실 뒤에서도 찍히도록 화면 가득 */
+#qrCard{max-width:min(94vw,760px);width:auto}
+#qrModal #qr{width:min(70vh,86vw)!important;height:auto!important;max-width:none}
+#qrTitle{font-size:clamp(16px,2.4vw,24px)}
+#qrUrl{word-break:break-all;font-size:12px}
