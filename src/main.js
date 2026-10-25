@@ -679,6 +679,16 @@ function posterHTML(kind, land) {
       <div class="box"><h2>📖 학생별 ${S} 연상 단어</h2><div class="grid" style="grid-template-columns:repeat(${land ? 5 : 4},1fr)">${v.map((e) => `<div class="card"><div class="who">${esc(e.sid)} ${esc(e.name)}</div><p>${esc(e.w1)} · ${esc(e.w2)}</p></div>`).join('')}</div></div>
       ${foot(cfg.introQuote, cfg.introQuoteBy, cfg.introClosing)}`;
   }
+  if (kind === 'present') {
+    // 배움공유: 수업 화면에 보이는 발표 전부 + 그 발표의 댓글 전부 (이름은 넣지 않음)
+    const ps = presentsShown(), allC = ps.reduce((n, p) => n + commentsOf(p.id).length, 0), allL = ps.reduce((n, p) => n + likeCount(p.id), 0);
+    return head('배움공유 · 친구들의 발표와 댓글') + `
+      <div class="box kws"><b>🎤 발표 ${ps.length}개</b><span>💬 댓글 ${allC}개</span><span>👏 칭찬 ${allL}번</span></div>
+      <div class="grid" style="grid-template-columns:repeat(${land ? 3 : 2},1fr)">${ps.map((p, i) => { const cs = commentsOf(p.id); return `<div class="pp">
+        <div class="pp-top">${p.thumb ? `<img src="${p.thumb}" alt="">` : ''}<div><div class="pp-n">${i + 1}</div><b>${esc(p.title)}</b>
+          <div class="pp-by">${kindLabel(p.kind)} · ${esc(p.name)}</div><div class="pp-cnt">👏 ${likeCount(p.id)} · 💬 ${cs.length}</div></div></div>
+        ${cs.length ? `<ul>${cs.slice().reverse().map((c) => `<li><span class="id">${esc(c.sid)}</span> ${esc(c.body)}</li>`).join('')}</ul>` : '<div class="by">댓글 없음</div>'}</div>`; }).join('') || '<div class="by">올라온 발표가 없어요</div>'}</div>`;
+  }
   // 게시용에는 숨김 여부와 관계없이 학생 글 전부를 학번순으로 (이름은 넣지 않음)
   const all = [...entries()].sort((a, b) => a.sid.localeCompare(b.sid) || ts(a) - ts(b)), v = visible();
   const t = v.find((e) => e.id === picks.teacher), a = currentAi(v), best = picks.best.map((id) => v.find((e) => e.id === id)).filter(Boolean);
@@ -705,7 +715,8 @@ function fitPoster() {
   const stage = $('#paperStage'), vs = Math.min(1, (stage.clientWidth - 32) / (W * MM));
   const scaleBox = $('#paperScale'); scaleBox.style.transform = `scale(${vs})`; scaleBox.style.height = (H * MM * vs) + 'px'; scaleBox.style.width = (W * MM * vs) + 'px';
   const pct = Math.round(sc * 100), list = pv.lesson === 'intro' ? intro() : entries(), people = new Set(list.map((e) => e.sid)).size;
-  $('#posterInfo').textContent = `학생 ${people}명이 올린 글 ${list.length}편을 빠짐없이 모두 넣었어요 · ${pv.paper} ${land ? '가로' : '세로'} (${W}×${H}mm) 한 장 · 글자 크기 ${pct}%`
+  const ps = presentsShown(), nc = ps.reduce((n, p) => n + commentsOf(p.id).length, 0);
+  $('#posterInfo').textContent = (pv.lesson === 'present' ? `발표 ${ps.length}개와 댓글 ${nc}개를 빠짐없이 모두 넣었어요` : `학생 ${people}명이 올린 글 ${list.length}편을 빠짐없이 모두 넣었어요`) + ` · ${pv.paper} ${land ? '가로' : '세로'} (${W}×${H}mm) 한 장 · 글자 크기 ${pct}%`
     + (pct < 60 ? ' · 글이 많아 글씨가 작아요. B4나 가로를 추천해요' : pct > 100 ? ' · 내용이 적어 크게 키웠어요' : '');
   document.querySelectorAll('[data-pv]').forEach((b) => b.setAttribute('aria-pressed', pv[b.dataset.pv] === b.dataset.val));
   return { W, H };

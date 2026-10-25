@@ -483,3 +483,17 @@ body.deck-open{overflow:hidden}
 .nav-cls:has(a[aria-current="page"]){border-color:var(--accent)}
 .topbar .nav .nav-cls a{border:none;padding-right:6px}
 .nav-cls .nav-qr{margin:0;padding:2px 7px;font-size:11px;line-height:1.4}
+.cls-print{border-color:var(--orange);color:var(--orange);background:transparent}
+.poster .pp{border:1px solid var(--p-line);border-radius:8px;padding:8px;break-inside:avoid;background:#fff;display:flex;flex-direction:column;gap:5px;min-width:0}
+.poster .pp-top{display:flex;gap:8px;align-items:flex-start}
+.poster .pp-top img{width:96px;height:64px;object-fit:cover;border-radius:5px;flex:none}
+.poster .pp-top>div{min-width:0;position:relative}
+.poster .pp-n{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:999px;background:var(--p-a);color:#fff;font-size:11px;font-weight:700;margin-right:4px;vertical-align:middle}
+.poster .pp-top b{font-size:14px;color:var(--p-ink);overflow-wrap:anywhere}
+.poster .pp-by{color:var(--p-a);font-weight:700;font-size:12px;overflow-wrap:anywhere}
+.poster .pp-cnt{color:var(--p-mute);font-size:12px}
+.poster .pp ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.poster .pp li{background:var(--p-soft);border-left:3px solid var(--p-g);border-radius:4px;padding:3px 7px;font-size:12px;overflow-wrap:anywhere}
+.poster .pp .id{font-size:10px;color:var(--p-g);border:1px solid var(--p-g);border-radius:3px;padding:0 3px;font-weight:600}
+.poster .pp-top{flex-direction:column}
+.poster .pp-top img{width:100%;height:auto;aspect-ratio:16/9}
