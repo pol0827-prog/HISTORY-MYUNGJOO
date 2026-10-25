@@ -111,7 +111,7 @@ function showLesson(m) {
 }
 document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = async () => {
   showLesson(b.dataset.lesson);
-  const msg = { intro: '오늘 배움 시작 화면으로 바꿨어요', close: '오늘 배움 마무리 화면으로 바꿨어요', present: '발표 화면으로 바꿨어요' }[lesson];
+  const msg = { intro: '오늘 배움 시작 화면으로 바꿨어요', close: '오늘 배움 마무리 화면으로 바꿨어요', present: '배움공유 화면으로 바꿨어요' }[lesson];
   if (isTeacher) { try { await setDoc(doc(db, 'settings', 'state'), { lesson }, { merge: true }); } catch { /* 이 화면만 바뀜 */ } }
   toast(msg);
 }));
@@ -190,7 +190,7 @@ async function renderQrFloat() {
   document.documentElement.dataset.qr = onClass && !qfMini ? 'open' : '';
   if (!onClass || qfMini) return;
   $('#qfToggle').textContent = 'QR 접기';
-  $('#qfTitle').textContent = { intro: '🚪 배움 시작 제출', present: '🎤 발표 자료 올리기' }[lesson] || '🏁 배움 마무리 제출';
+  $('#qfTitle').textContent = { intro: '🚪 배움 시작 제출', present: '🎤 배움공유' }[lesson] || '🏁 배움 마무리 제출';
   const url = linkFor(submitHash());
   $('#qfCap').textContent = (className ? `${className} 전용 · ` : '') + (lesson === 'present' ? '자료 올리기와 친구 발표 댓글 모두 여기서' : '휴대폰 카메라로 찍으세요');
   if (!qfMini && qfDrawn !== url) { await QRCode.toCanvas($('#qfCanvas'), url, { width: 160, margin: 1 }); qfDrawn = url; }

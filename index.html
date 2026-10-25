@@ -21,7 +21,7 @@
   </section>
 </div>
 <div class="topbar"><div class="in">
-  <nav class="nav" aria-label="화면 전환"><button type="button" class="nav-qr" id="navQr" title="수업 화면 주소 QR 코드">QR</button><a href="#class" data-v="class">📺 수업 화면</a><a href="#intro" data-v="intro" class="intro-only">📝 학생 제출 양식 미리보기 (배움 시작)</a><a href="#write" data-v="write" class="close-only">📝 학생 제출 양식 미리보기 (배움 마무리)</a><a href="#present" data-v="present" class="present-only">📝 학생 제출 양식 미리보기 (발표 자료)</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a></nav>
+  <nav class="nav" aria-label="화면 전환"><button type="button" class="nav-qr" id="navQr" title="수업 화면 주소 QR 코드">QR</button><a href="#class" data-v="class">📺 수업 화면</a><a href="#intro" data-v="intro" class="intro-only">📝 학생 제출 양식 미리보기 (배움 시작)</a><a href="#write" data-v="write" class="close-only">📝 학생 제출 양식 미리보기 (배움 마무리)</a><a href="#present" data-v="present" class="present-only">📝 학생 제출 양식 미리보기 (배움공유)</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a></nav>
   <div class="tools">
   <button type="button" class="mode-btn qf-open" id="qfOpen" hidden>📱 학생 제출용 QR 펴기</button>
   <time class="clock" id="clock"></time>
@@ -38,10 +38,10 @@
       <div class="sub present-only">학생·모둠이 올린 발표 자료를 발표 화면으로 바로 보여 줍니다</div>
     </div>
     <div class="row">
-      <div class="lesson-switch" role="group" aria-label="오늘 배움 시작 또는 마무리">
+      <div class="lesson-switch" role="group" aria-label="오늘 배움 시작, 마무리, 배움공유">
         <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
-        <button type="button" data-lesson="present">🎤 발표</button>
+        <button type="button" data-lesson="present">🎤 배움공유</button>
       </div>
       <span class="chip cls-chip" id="clsChip" hidden></span>
       <span class="chip stu-chip">학생 수: <span id="cStu">0</span>명</span><span class="chip present-only">발표 자료: <span id="cPres">0</span>개</span>
@@ -75,7 +75,7 @@
   </div>
   <div class="contents present-only">
     <section class="panel">
-      <h2>🎤 발표 자료 <span class="muted" id="pCount"></span><button type="button" class="primary sm" id="pPlayAll" style="margin-left:auto">▶ 처음부터 차례대로 발표</button></h2>
+      <h2>🎤 배움공유 <span class="muted" id="pCount"></span><button type="button" class="primary sm" id="pPlayAll" style="margin-left:auto">▶ 처음부터 차례대로 발표</button></h2>
       <div class="pgrid" id="pGrid"></div>
     </section>
   </div>
@@ -237,10 +237,10 @@
 
     <section class="panel lesson-bar">
       <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다.</div></div>
-      <div class="lesson-switch big" role="group" aria-label="오늘 배움 시작 또는 마무리">
+      <div class="lesson-switch big" role="group" aria-label="오늘 배움 시작, 마무리, 배움공유">
         <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
-        <button type="button" data-lesson="present">🎤 발표</button>
+        <button type="button" data-lesson="present">🎤 배움공유</button>
       </div>
     </section>
 
@@ -262,7 +262,7 @@
 
     <div class="contents present-only">
       <section class="panel">
-        <h2>🎤 발표 자료 관리 <span class="muted" id="ptCnt"></span></h2>
+        <h2>🎤 배움공유 관리 <span class="muted" id="ptCnt"></span></h2>
         <p class="muted" style="margin:0 0 10px">학생 제출용 QR로 올라온 발표 자료예요. 순서를 바꾸면 수업 화면 순서도 바뀌고, 고치기를 누르면 학생과 같은 편집 화면에서 사진·링크·내용을 바꿀 수 있어요. 발표 자료는 반별로 따로 쌓이고, 지울 때까지 남아 있어요(반별 수업 기록 저장에는 들어가지 않아요).</p>
         <div class="warn-box" id="ptWarn" hidden></div>
         <div class="row" style="margin-bottom:10px"><button type="button" class="danger" id="pClearAll">이 반 발표 자료 모두 지우기</button></div>
@@ -426,7 +426,7 @@
       <div class="links">
         <div><b>학생 제출 (배움 시작)</b><code data-link="intro"></code><button type="button" class="sm" data-copy="intro">복사</button></div>
         <div><b>학생 제출 (배움 마무리)</b><code data-link="write"></code><button type="button" class="sm" data-copy="write">복사</button></div>
-        <div><b>학생 제출 (발표 자료)</b><code data-link="present"></code><button type="button" class="sm" data-copy="present">복사</button></div>
+        <div><b>학생 제출 (배움공유)</b><code data-link="present"></code><button type="button" class="sm" data-copy="present">복사</button></div>
         <div><b>수업 화면</b><code data-link="class"></code><button type="button" class="sm" data-copy="class">복사</button></div>
         <div><b>교사 관리 모드</b><code data-link="teacher"></code><button type="button" class="sm" data-copy="teacher">복사</button></div>
       </div>
