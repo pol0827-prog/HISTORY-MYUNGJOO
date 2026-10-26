@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>배움 일기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Hi+Melody&family=Do+Hyeon&family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 </head>
 <body>
 <style>#noRun{visibility:hidden;animation:noRunShow 0s 1.5s forwards}@keyframes noRunShow{to{visibility:visible}}</style>
@@ -54,12 +54,14 @@
   </header>
   <div class="contents board-only">
     <section class="board-wrap" id="boardWrap">
-      <div class="chalkboard" id="chalkboard"></div>
-      <div class="cb-rotate">📱 휴대폰은 가로로 돌리거나 [칠판 크게 보기]를 누르면 화면에 꽉 차게 보여요</div>
-      <div class="cb-tools">
-        <button type="button" class="sm" id="cbFont" title="글씨 크기">칠판 글씨 크기: 자동</button>
-        <button type="button" class="primary sm" id="cbFull">⛶ 칠판 크게 보기</button>
+      <div class="chalkboard" id="chalkboard">
+        <div class="cb-content" id="cbContent"></div>
+        <canvas class="cb-ink" id="cbInk" aria-label="칠판 필기"></canvas>
+        <div class="cb-side" id="cbSide" role="toolbar" aria-label="필기 도구"></div>
       </div>
+      <div class="cb-bar" id="cbBar"></div>
+      <div class="cb-pop" id="cbPop" hidden></div>
+      <div class="cb-rotate">📱 휴대폰은 가로로 돌리거나 [칠판 크게 보기]를 누르면 화면에 꽉 차게 보여요</div>
     </section>
   </div>
   <div class="contents intro-only">
@@ -120,13 +122,15 @@
       </div>
       <label><span data-t="나의 {subject} 별명"></span> <span class="muted" data-t="{nickHelp}"></span>
         <input id="iNick" required maxlength="40" data-ph="{nickEx}"></label>
-      <button type="submit" class="primary">제출하기</button>
+      <div class="have-note" id="iHave" hidden>✏️ 이미 제출한 내용을 불러왔어요. 학번·이름이 처음과 같으면 고쳐서 다시 제출할 수 있어요.</div>
+      <button type="submit" class="primary" id="iSubmit">제출하기</button>
+      <p class="muted one-note">한 사람이 하나만 제출해요. 다시 제출하면 고쳐져요.</p>
       <div class="err" id="iErr"></div>
     </form>
     <div class="done" id="iDone" hidden>
       <div class="big">제출 완료!</div>
       <div class="muted">수업 화면의 단어 구름에 내 단어와 별명이 들어갔어요.</div>
-      <button type="button" id="iAgain">다시 쓰기</button>
+      <button type="button" id="iAgain">✏️ 고치기</button>
     </div>
   </section>
 </div>
@@ -144,13 +148,15 @@
       </div>
       <label><span data-t="오늘의 {subject} 배움 일기"></span> <span class="muted" data-t="{bodyHelp}"></span>
         <textarea id="wBody" required maxlength="300" placeholder="오늘 수업에서 배우고 느낀 점을 적어 보세요."></textarea></label>
-      <button type="submit" class="primary">제출하기</button>
+      <div class="have-note" id="wHave" hidden>✏️ 이미 제출한 일기를 불러왔어요. 학번·이름이 처음과 같으면 고쳐서 다시 제출할 수 있어요.</div>
+      <button type="submit" class="primary" id="wSubmit">제출하기</button>
+      <p class="muted one-note">한 사람이 일기 하나만 제출해요. 다시 제출하면 고쳐져요.</p>
       <div class="err" id="wErr"></div>
     </form>
     <div class="done" id="done" hidden>
       <div class="big">제출 완료!</div>
       <div class="muted">수업 화면에 내 일기가 올라갔어요.</div>
-      <button type="button" id="again">하나 더 쓰기</button>
+      <button type="button" id="again">✏️ 고치기</button>
     </div>
   </section>
 </div>
@@ -180,7 +186,8 @@
             <span>📝 발표 내용 정리</span><span>💭 느낀 점</span><span>💡 배운 점</span><span>🌱 소감</span><span>❓ 궁금한 점·질문</span>
           </div>
           <label>댓글 <textarea id="talkBody" required maxlength="300" rows="4" placeholder="예: 나폴레옹 법전이 지금 민법의 바탕이 되었다는 걸 배웠다. 영웅과 독재자 두 면을 다 보여 줘서 생각해 볼 거리가 많았다."></textarea></label>
-          <button type="submit" class="primary">댓글 달기</button>
+          <button type="submit" class="primary" id="talkSubmit">댓글 달기</button>
+          <p class="muted one-note">발표 하나에 한 사람이 댓글 하나만 달아요. 다시 달면 고쳐져요.</p>
           <div class="err" id="tErr"></div>
         </form>
         <b class="p-step">친구들의 댓글 <span class="muted" id="tCnt"></span></b>
@@ -189,11 +196,11 @@
     </div>
     <div id="pUp">
     <h1 style="font-size:22px;margin-bottom:4px">🎤 발표 자료 올리기</h1>
-    <p class="muted" style="margin:0 0 16px">사진, 링크, 발표 내용을 올리면 발표하기 좋은 화면으로 자동으로 만들어져요. 올린 뒤에도 이 휴대폰에서 다시 고칠 수 있어요.</p>
+    <p class="muted" style="margin:0 0 16px">사진, 링크, 발표 내용을 올리면 발표하기 좋은 화면으로 자동으로 만들어져요. 한 사람(모둠은 대표 학번)이 발표 1개만 올리고, 같은 학번·이름으로 들어오면 언제든 고칠 수 있어요.</p>
     <div id="pMine"></div>
     <form id="presentForm">
       <div class="form-cls" data-formcls hidden></div>
-      <div class="p-edit-note" id="pEditNote" hidden><span>✏️ 올린 발표를 고치는 중이에요</span><button type="button" class="sm" id="pNewInstead">새로 쓰기</button></div>
+      <div class="p-edit-note" id="pEditNote" hidden><span>✏️ 이미 올린 발표를 불러왔어요. 고쳐서 저장하면 바뀌어요 (한 사람·한 모둠이 발표 1개)</span></div>
       <div class="p-kind" role="radiogroup" aria-label="발표 형태"><b>발표 형태</b>
         <label><input type="radio" name="pKind" value="solo" checked> 개인</label>
         <label><input type="radio" name="pKind" value="group"> 모둠</label>
@@ -219,7 +226,7 @@
     <div class="done" id="pDone" hidden>
       <div class="big">올리기 완료!</div>
       <div class="muted">수업 화면의 발표 자료에 올라갔어요. 이 휴대폰에서 언제든 다시 고칠 수 있어요.</div>
-      <div class="row" style="justify-content:center"><button type="button" id="pDoneView">발표 화면 보기</button><button type="button" id="pDoneEdit">고치기</button><button type="button" id="pDoneNew">새로 올리기</button></div>
+      <div class="row" style="justify-content:center"><button type="button" id="pDoneView">발표 화면 보기</button><button type="button" id="pDoneEdit">✏️ 고치기</button></div>
     </div>
     </div>
   </section>
@@ -255,23 +262,15 @@
     </section>
 
     <section class="panel board-only board-admin">
-      <h2>🧑‍🏫 칠판 판서 <span class="muted">적어 두면 수업 화면이 칠판에 분필로 쓴 것처럼 바뀌어요. 강의하면서 화면을 보고 설명하세요</span></h2>
-      <form id="boardForm" class="cfg">
-        <label class="wide-half">대단원명 <input id="b-unit" maxlength="60" placeholder="예: Ⅳ. 제국주의와 두 차례 세계 대전"></label>
-        <label class="wide-half">소단원명 <input id="b-sub" maxlength="60" placeholder="예: 2. 제2차 세계 대전"></label>
-        <label class="wide">학습 주제 <input id="b-topic" maxlength="80" placeholder="예: 제2차 세계 대전은 어떻게 전개되었을까?"></label>
-        <label class="wide">성취기준 <textarea id="b-std" maxlength="300" rows="2" placeholder="예: [12세사04-03] 두 차례 세계 대전의 원인과 전개 과정을 파악하고, …"></textarea></label>
-        <label class="wide">오늘의 강의 내용 <span class="muted">한 줄 = 칠판 한 줄 · <b># 소제목</b>(노란 분필) · <b>- 내용</b>(글머리표) · <b>! 중요</b>(분홍 분필) · <b>→ 화살표</b> · 빈 줄로 칸 띄우기</span>
-          <textarea id="b-body" maxlength="3000" rows="12" placeholder="# 1. 전쟁의 시작&#10;- 1939. 9. 독일의 폴란드 침공 → 영국·프랑스 선전 포고&#10;- 독일의 전격전 → 파리 함락(1940)&#10;&#10;# 2. 전쟁의 확대&#10;- 1941. 6. 독소 불가침 조약 파기, 소련 침공&#10;- 1941. 12. 일본의 진주만 공습 → 태평양 전쟁&#10;! 미국의 참전으로 전쟁이 세계 대전으로 확대"></textarea></label>
-        <div class="row wide" style="justify-content:space-between">
-          <div class="row"><button type="button" class="sm" id="bClearBody">강의 내용만 지우기</button><span class="muted" id="bSaved"></span></div>
-          <div class="row"><button type="button" class="sm" id="bPreviewFull">⛶ 칠판 크게 미리보기</button><button type="submit" class="primary">칠판에 쓰기 (저장)</button></div>
-        </div>
-      </form>
-      <div class="cb-mini" id="cbMini"></div>
+      <h2>🧑‍🏫 저장된 판서 <span class="muted">판서는 수업 화면의 칠판에서 바로 쓰고 고쳐요. 저장한 판서는 여기에 모이고, 불러오면 칠판에 바로 보여요</span></h2>
+      <div class="row" style="margin-bottom:10px"><a class="btn primary" href="#class">📺 수업 화면 칠판 열기</a><button type="button" id="bNew">➕ 새 칠판으로 시작</button></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>학습 주제 · 단원</th><th>필기</th><th>저장 시각</th><th>관리</th></tr></thead>
+        <tbody id="bSavedRows"></tbody>
+      </table></div>
     </section>
 
-    <section class="panel arch">
+    <section class="panel arch not-board">
       <h2>📁 반별 수업 기록 <span class="muted">수업이 끝나면 저장해 두고, 지운 뒤에도 언제든 다시 불러올 수 있어요</span></h2>
       <form class="row" id="clsForm">
         <label class="inline">지금 수업하는 반 <select id="clsSelect"></select></label>
@@ -279,7 +278,7 @@
         <button type="submit" class="sm">이 반으로 정하기</button>
         <button type="button" class="primary" id="archSave">💾 지금 기록 저장</button>
       </form>
-      <p class="muted" style="margin:6px 0 10px">저장하면 오늘 배움 시작과 오늘 배움 마무리 기록(학생 글, 이름, 추천, AI 추천)이 함께 보관돼요. "기록 전체 비우기"를 누르면 지우기 전에 자동으로 먼저 저장합니다.</p>
+      <p class="muted" style="margin:6px 0 10px">저장하면 오늘 배움 시작과 오늘 배움 마무리 기록(학생 글, 이름, 추천, AI 추천)이 함께 보관돼요. <b>저장을 누르지 않아도</b> 교사 관리 모드로 들어온 기기가 켜져 있으면 반마다 그날 수업이 자동으로 저장돼요(<span class="state on">자동</span> 표시). "기록 전체 비우기"를 누르면 지우기 전에도 먼저 저장합니다.</p>
       <div id="archBox"></div>
       <div class="tbl-wrap"><table class="arch-tbl">
         <thead><tr><th>반</th><th>저장 시각</th><th>배움 시작</th><th>배움 마무리</th><th>메모</th><th>관리</th></tr></thead>
@@ -393,7 +392,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel not-board">
       <h2>🔗 수업 링크 <span class="muted" id="linkCls"></span></h2>
       <div class="links">
         <div><b>학생 제출 (배움 시작)</b><code data-link="intro"></code><button type="button" class="sm" data-copy="intro">복사</button></div>
@@ -405,7 +404,7 @@
       <p class="muted">수업용 화면 링크는 학생들에게 주셔도 되고 교실 공동 화면에 띄우기만 하셔도 됩니다. 단, 교사 관리 모드 링크는 학생에게 공유하지 마세요.</p>
     </section>
     </div>
-    <aside class="t-side">
+    <aside class="t-side not-board">
     <section class="panel">
       <h2>🏫 수업 들어가는 반 <span class="muted">반과 재적수를 미리 넣어 두면 "지금 수업하는 반"에서 고를 수 있고, 수업 화면에 제출 학생 수 / 재적수가 보여요</span></h2>
       <div class="cls-list" id="clsList"></div>

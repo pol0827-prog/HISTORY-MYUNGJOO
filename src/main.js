@@ -7,6 +7,7 @@ import { signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
 import QRCode from 'qrcode';
 import { db, auth, configured } from './firebase.js';
 import { PRESETS, CFG_KEYS } from './presets.js';
+import { initBoard } from './board.js';
 
 document.getElementById('noRun')?.remove();
 
@@ -129,6 +130,16 @@ document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = asy
 const CLOUD_COLORS = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c5)'];
 // 별명을 누르면 이름 보기 (이름은 교사 관리 모드로 들어온 기기에서만 불러올 수 있음)
 const revealed = new Set();
+// 수업 화면에서 바로 추천 고르기 (교사 관리 모드로 들어온 기기에서만 보임)
+function quickPick(kind, id) {
+  if (!isTeacher) return;
+  if (kind === 'teacher') return savePicks({ ...picks, teacher: picks.teacher === id ? null : id });
+  const best = [...picks.best]; const at = best.indexOf(id);
+  if (at >= 0) best[at] = null;
+  else { const free = best.findIndex((x) => !x || !iVisible().some((e) => e.id === x && e.nick)); if (free < 0) return toast('별명 명작은 3개까지예요. 하나를 먼저 빼 주세요'); best[free] = id; }
+  savePicks({ ...picks, best });
+}
+document.addEventListener('click', (ev) => { const b = ev.target.closest('[data-pick]'); if (b) { ev.stopPropagation(); quickPick(b.dataset.pick, b.dataset.id); } }, true);
 $('#list').addEventListener('click', (ev) => {
   const b = ev.target.closest('.nick-btn'); if (!b) return;
   if (!isTeacher) return toast('이름은 교사 관리 모드로 들어온 기기에서만 볼 수 있어요');
@@ -141,10 +152,10 @@ function renderClose() {
   if (lesson === 'close') setStu(new Set(v.map((e) => e.sid)).size);
   $('#kw').innerHTML = '<strong>🔥 자주 등장한 핵심 키워드 Top 5:</strong>' + keywords(v).map((k) => `<span>#${esc(k)}</span>`).join('');
   $('#list').innerHTML = v.length ? [...v].sort((a, b) => ts(b) - ts(a)).map((e) =>
-    `<div class="card"><div class="who"><button type="button" class="nick-btn" data-id="${esc(e.id)}" title="누르면 이름 보기">👤 ${esc(nickOf(e) || '학생')}</button> <span class="no">${esc(e.sid)}</span>${revealed.has(e.id) && e.name ? `<span class="real-name">${esc(e.name)}</span>` : ''}</div><q>${esc(e.body)}</q></div>`).join('')
+    `<div class="card"><div class="who"><button type="button" class="nick-btn" data-id="${esc(e.id)}" title="누르면 이름 보기">👤 ${esc(nickOf(e) || '학생')}</button> <span class="no">${esc(e.sid)}</span>${revealed.has(e.id) && e.name ? `<span class="real-name">${esc(e.name)}</span>` : ''}${isTeacher ? `<button type="button" class="pick-btn ${picks.teacher === e.id ? 'on' : ''}" data-pick="teacher" data-id="${esc(e.id)}" title="선생님 추천 일기로 바로 보여 주기">🏆 ${picks.teacher === e.id ? '추천 중' : '추천'}</button>` : ''}</div><q>${esc(e.body)}</q></div>`).join('')
     : '<div class="empty">아직 제출된 일기가 없어요. QR 코드로 첫 일기를 받아 보세요.</div>';
   const t = v.find((e) => e.id === picks.teacher);
-  $('#tQuote').textContent = t ? `"${t.body}"` : '교사 관리 모드에서 추천 일기를 골라 주세요';
+  $('#tQuote').textContent = t ? `"${t.body}"` : (isTeacher ? '왼쪽 일기 카드의 🏆 추천을 누르면 바로 보여요' : '교사 관리 모드에서 추천 일기를 골라 주세요');
   $('#tBy').textContent = t ? '- ' + label(t) : '';
   const { e: a, reason } = currentAi(v);
   $('#aiQuote').textContent = a ? `"${a.body}"` : '';
@@ -164,113 +175,17 @@ function renderIntro() {
   $('#bars').innerHTML = top.length ? `<div class="axis">${ticks.map((t) => `<span>${t}</span>`).join('')}</div>
     <div class="plot"><div class="grid">${ticks.map(() => '<i></i>').join('')}</div>${top.map(([w, c]) => `<div class="col"><div class="bar" style="height:${(c / tmax) * 100}%"><b>${c}</b></div><span class="lab" title="${esc(w)}">${esc(w)}</span></div>`).join('')}</div>`
     : '<div class="empty" style="grid-column:1/-1">아직 제출된 단어가 없어요.</div>';
-  $('#iList').innerHTML = v.length ? [...v].sort((a, b) => a.sid.localeCompare(b.sid)).map((e) => `<div class="card"><div class="who">${esc(e.sid)}${e.nick ? ` <span class="i-nick">👤 ${esc(e.nick)}</span>` : ''}</div><div style="margin-top:4px">💡 단어1: ${esc(e.w1)} / 단어2: ${esc(e.w2)}</div></div>`).join('')
+  $('#iList').innerHTML = v.length ? [...v].sort((a, b) => a.sid.localeCompare(b.sid)).map((e) => `<div class="card"><div class="who">${esc(e.sid)}${e.nick ? ` <span class="i-nick">👤 ${esc(e.nick)}</span>` : ''}${isTeacher && e.nick ? `<button type="button" class="pick-btn ${picks.best.includes(e.id) ? 'on' : ''}" data-pick="best" data-id="${esc(e.id)}" title="별명 명작으로 바로 보여 주기">✨ ${picks.best.includes(e.id) ? '명작 중' : '명작'}</button>` : ''}</div><div style="margin-top:4px">💡 단어1: ${esc(e.w1)} / 단어2: ${esc(e.w2)}</div></div>`).join('')
     : '<div class="empty">아직 제출이 없어요.</div>';
   $('#trio').innerHTML = picks.best.map((id, i) => { const e = v.find((x) => x.id === id); if (!e?.nick) return '';
-    return `<div class="card"><div class="rank">✨ 추천 ${i + 1} (${esc(e.sid)})</div><div class="nick">"${esc(e.nick)}"</div></div>`; }).join('')
-    || '<div class="empty">교사 관리 모드에서 별명 명작을 골라 주세요</div>';
+    return `<div class="card"><div class="rank">✨ 추천 ${i + 1} (${esc(e.sid)})${isTeacher ? `<button type="button" class="pick-x" data-pick="best" data-id="${esc(e.id)}" title="빼기" aria-label="별명 명작에서 빼기">✕</button>` : ''}</div><div class="nick">"${esc(e.nick)}"</div></div>`; }).join('')
+    || `<div class="empty">${isTeacher ? '위 목록 카드의 ✨ 명작을 누르면 바로 보여요' : '교사 관리 모드에서 별명 명작을 골라 주세요'}</div>`;
 }
-/* ================= 🧑‍🏫 칠판 판서 (settings/board) =================
-   대단원·소단원·학습 주제·성취기준은 기본으로 두고, 강의 내용은 수업마다 바꿔 씀.
-   강의 내용 쓰는 법: # 소제목(노란 분필) · - 글머리표 · ! 중요(분홍 분필) · **강조** · 빈 줄 = 칸 띄우기 */
-let board = { unit: '', sub: '', topic: '', std: '', body: '' };
-const B_KEYS = ['unit', 'sub', 'topic', 'std', 'body'];
-const chalkInline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<em>$1</em>').replace(/(->|=>)/g, '→');
-function chalkBody(body) {
-  let html = '', inList = false;
-  const close = () => { if (inList) { html += '</ul>'; inList = false; } };
-  String(body || '').replace(/\r/g, '').split('\n').forEach((ln) => {
-    const t = ln.trim();
-    if (!t) { close(); html += '<div class="cb-gap"></div>'; return; }
-    const h = t.match(/^#+\s*(.+)/), li = t.match(/^[-•*·]\s*(.+)/), imp = t.match(/^!\s*(.+)/);
-    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${chalkInline(li[1])}</li>`; return; }
-    close();
-    html += h ? `<h3>${chalkInline(h[1])}</h3>` : imp ? `<p class="imp">${chalkInline(imp[1])}</p>` : `<p>${chalkInline(t)}</p>`;
-  });
-  close();
-  return html;
-}
-function chalkHTML(b) {
-  const d = new Date(), path = [b.unit, b.sub].filter(Boolean).map(esc).join(' <i>›</i> ');
-  const empty = !b.topic && !b.body && !path;
-  return `<div class="cb-head">
-      ${path ? `<div class="cb-path">${path}</div>` : ''}
-      <h2 class="cb-topic">${b.topic ? `<span class="cb-tag">학습 주제</span>${chalkInline(b.topic)}` : ''}</h2>
-      ${b.std ? `<div class="cb-std"><span class="cb-tag">성취기준</span>${chalkInline(b.std)}</div>` : ''}
-    </div>
-    <div class="cb-body">${empty ? '<p class="cb-empty">교사 관리 모드 → 🧑‍🏫 칠판 판서에서 오늘 강의 내용을 적어 주세요</p>' : chalkBody(b.body)}</div>
-    <div class="cb-date">${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})</div>
-    <div class="cb-tray" aria-hidden="true"><i></i><i class="y"></i><i class="p"></i><b></b></div>`;
-}
-// 글씨 크기: 자동(칠판에 꽉 차게 맞춤) · 크게 · 아주 크게 (이 기기에서만 기억)
-const CB_SIZES = [{ k: 'auto', t: '자동' }, { k: 'l', t: '크게' }, { k: 'xl', t: '아주 크게' }];
-let cbSize = 'auto'; try { cbSize = localStorage.getItem('cbSize') || 'auto'; } catch { /* 무시 */ }
-function fitChalk(boardEl) {
-  if (!boardEl || !boardEl.offsetWidth) return;
-  const body = boardEl.querySelector('.cb-body'); if (!body) return;
-  const H = boardEl.clientHeight, W = boardEl.clientWidth;
-  boardEl.style.setProperty('--cb-u', (Math.min(H, W * 9 / 16) / 100) + 'px');   // 칠판 높이의 1% (글씨 크기 기준)
-  body.style.columnCount = ''; body.classList.remove('two');
-  if (cbSize !== 'auto') { body.style.fontSize = ''; body.dataset.size = cbSize; return; }
-  delete body.dataset.size;
-  const u = Math.min(H, W * 9 / 16) / 100, maxFs = u * 6.2, minFs = Math.max(12, u * 2.6);
-  const over = () => body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1;
-  let fs = maxFs; body.style.fontSize = fs + 'px';
-  for (let k = 0; k < 40 && over() && fs > minFs * 1.25; k++) { fs *= 0.94; body.style.fontSize = fs + 'px'; }
-  if (over()) {   // 내용이 많으면 두 칸으로 나눠 씀
-    body.classList.add('two'); fs = Math.min(maxFs, fs * 1.3); body.style.fontSize = fs + 'px';
-    for (let k = 0; k < 40 && over() && fs > minFs; k++) { fs *= 0.94; body.style.fontSize = fs + 'px'; }
-  }
-}
-function renderBoard() {
-  $('#chalkboard').innerHTML = chalkHTML(board);
-  $('#cbFont').textContent = `칠판 글씨 크기: ${CB_SIZES.find((x) => x.k === cbSize)?.t || '자동'}`;
-  if (lesson === 'board') requestAnimationFrame(() => fitChalk($('#chalkboard')));
-  if (isTeacher) renderBoardMini();
-}
-const boardFromForm = () => Object.fromEntries(B_KEYS.map((k) => [k, ($('#b-' + k)?.value || '').trim()]));
-function renderBoardMini() {
-  $('#cbMini').innerHTML = `<div class="board-wrap" id="cbMiniWrap"><div class="chalkboard">${chalkHTML(boardFromForm())}</div></div>`;
-  requestAnimationFrame(() => fitChalk($('#cbMini .chalkboard')));
-}
-let boardDirty = false;
-const fillBoardForm = () => B_KEYS.forEach((k) => { const el = $('#b-' + k); if (el) el.value = board[k] || ''; });
-$('#boardForm').addEventListener('input', () => { boardDirty = true; $('#bSaved').textContent = '저장하지 않은 내용이 있어요'; renderBoardMini(); });
-$('#boardForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    await setDoc(doc(db, 'settings', 'board'), { ...boardFromForm(), updatedAt: serverTimestamp() });
-    boardDirty = false; $('#bSaved').textContent = '✔ 칠판에 반영했어요'; toast('칠판에 썼어요. 수업 화면에 바로 보여요');
-  } catch { toast('저장하지 못했어요. 교사 관리 모드에 다시 들어와 주세요'); }
-});
-$('#bClearBody').onclick = () => { $('#b-body').value = ''; boardDirty = true; $('#bSaved').textContent = '저장을 누르면 칠판의 강의 내용이 지워져요'; renderBoardMini(); $('#b-body').focus(); };
-// 가로 전체 화면: 휴대폰·태블릿은 가로로 고정, 고정이 안 되면 칠판을 돌려서 가로로 보여 줌
-async function boardFull(wrap) {
-  try {
-    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
-    await (wrap.requestFullscreen?.() || wrap.webkitRequestFullscreen?.());
-    await screen.orientation?.lock?.('landscape').catch(() => {});
-  } catch { wrap.classList.toggle('cb-fake-full'); document.body.classList.toggle('cb-lock', wrap.classList.contains('cb-fake-full')); }
-  setTimeout(() => fitChalk(wrap.querySelector('.chalkboard')), 120);
-}
-$('#cbFull').onclick = () => boardFull($('#boardWrap'));
-$('#bPreviewFull').onclick = () => boardFull($('#cbMiniWrap'));
-$('#cbFont').onclick = () => {
-  const i = CB_SIZES.findIndex((x) => x.k === cbSize); cbSize = CB_SIZES[(i + 1) % CB_SIZES.length].k;
-  try { localStorage.setItem('cbSize', cbSize); } catch { /* 무시 */ }
-  renderBoard();
-};
-document.addEventListener('fullscreenchange', () => {
-  document.querySelectorAll('.cb-fake-full').forEach((w) => w.classList.remove('cb-fake-full')); document.body.classList.remove('cb-lock');
-  if (!document.fullscreenElement) screen.orientation?.unlock?.();
-  setTimeout(() => document.querySelectorAll('.chalkboard').forEach(fitChalk), 120);
-});
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.cb-fake-full').forEach((w) => w.classList.remove('cb-fake-full')); document.body.classList.remove('cb-lock'); } });
-let cbT; window.addEventListener('resize', () => { clearTimeout(cbT); cbT = setTimeout(() => document.querySelectorAll('.chalkboard').forEach(fitChalk), 80); });
-// 칠판 날짜가 자정을 넘기면 바뀌도록
-setInterval(() => { if (lesson === 'board') renderBoard(); }, 60000);
+/* ================= 🧑‍🏫 칠판 판서 (src/board.js) ================= */
+const boardUI = initBoard({ $, esc, toast, db, auth, DAYS, isTeacher: () => isTeacher, lesson: () => lesson });
+const renderBoard = () => { if (lesson === 'board' || isTeacher) boardUI.render(); };
 
-function renderAll() { renderBoard(); renderClose(); renderIntro(); renderPresent(); renderTalk(); renderDeckTalk(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); renderTeacherTalk(); } }
+function renderAll() { renderBoard(); renderClose(); renderIntro(); renderPresent(); renderTalk(); renderDeckTalk(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); renderTeacherTalk(); scheduleAutoArchive(); } }
 
 $('#navReload').onclick = () => location.reload();
 async function showQr(hash, title) {
@@ -398,16 +313,26 @@ $('#diaryForm').addEventListener('submit', async (e) => {
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#wErr').textContent = '';
   try {
     // 수업 화면용 일기와, 교사만 보는 이름을 따로 저장
-    const ref = doc(db, 'entries', newId('entries', formCls())); const batch = writeBatch(db);
+    // 한 사람 1개: 문서 ID = 반~학번. 같은 학번·이름이면 고쳐짐 (이름 확인은 보안 규칙이 함)
+    const ref = doc(db, 'entries', mine(pubEntries, sid)?.id || clsPrefix(formCls()) + sid); const batch = writeBatch(db);
     // 배움 시작 별명을 일기에도 함께 저장해 두어, 배움 시작 기록을 비운 뒤에도 별명이 유지되게 함
     batch.set(ref, { sid, ...(nick ? { nick } : {}), body, hidden: false, createdAt: serverTimestamp() });
-    batch.set(doc(db, 'entryNames', ref.id), { sid, name });
+    batch.set(doc(db, 'entryNames', ref.id), { sid, name, at: serverTimestamp() });
     await batch.commit();
-    e.target.reset(); e.target.hidden = true; $('#done').hidden = false;
-  } catch (err) { console.error(err); $('#wErr').textContent = '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
+    e.target.hidden = true; $('#done').hidden = false;
+  } catch (err) { console.error(err); $('#wErr').textContent = err.code === 'permission-denied' ? SAME_MSG : '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
 });
-$('#again').onclick = () => { $('#done').hidden = true; $('#diaryForm').hidden = false; showWriteNick(); };
+$('#again').onclick = () => { $('#done').hidden = true; $('#diaryForm').hidden = false; showWriteNick(); haveWrite(); };
+const SAME_MSG = '이 학번으로 이미 제출한 글이 있어요. 처음 제출할 때와 학번·이름이 똑같아야 고칠 수 있어요. (선생님이 숨긴 글이면 고칠 수 없어요)';
+// 학번을 적으면 이미 낸 글을 불러와서 고치게 함
+const mine = (list, sid) => list.filter((x) => x.sid === sid && clsOf(x.id) === formCls()).sort((a, b) => ts(b) - ts(a))[0];
+function haveWrite() {
+  const sid = $('#wSid').value.trim(), ex = /^[0-9]{4,6}$/.test(sid) ? mine(pubEntries, sid) : null;
+  $('#wHave').hidden = !ex; $('#wSubmit').textContent = ex ? '고쳐서 다시 제출하기' : '제출하기';
+  if (ex && $('#wBody').dataset.from !== ex.id) { $('#wBody').value = ex.body || ''; $('#wBody').dataset.from = ex.id; }
+}
+$('#wSid').addEventListener('input', haveWrite);
 // 학번을 적으면 배움 시작 때 지은 별명을 보여 줌 (마무리에도 그 별명으로 올라감)
 $('#wSid').closest('.row2').insertAdjacentHTML('afterend', '<div class="w-nick" id="wNickShow" hidden></div>');
 function showWriteNick() {
@@ -423,12 +348,18 @@ $('#introForm').addEventListener('submit', async (e) => {
   if (bad) { $('#iErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#iErr').textContent = '';
   try {
-    await setDoc(doc(db, 'intro', newId('intro', formCls())), { sid, name, w1, w2, nick, hidden: false, createdAt: serverTimestamp() });
-    e.target.reset(); e.target.hidden = true; $('#iDone').hidden = false;
-  } catch (err) { console.error(err); $('#iErr').textContent = '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
+    await setDoc(doc(db, 'intro', mine(pubIntro, sid)?.id || clsPrefix(formCls()) + sid), { sid, name, w1, w2, nick, hidden: false, createdAt: serverTimestamp() });
+    e.target.hidden = true; $('#iDone').hidden = false;
+  } catch (err) { console.error(err); $('#iErr').textContent = err.code === 'permission-denied' ? SAME_MSG : '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
 });
-$('#iAgain').onclick = () => { $('#iDone').hidden = true; $('#introForm').hidden = false; };
+$('#iAgain').onclick = () => { $('#iDone').hidden = true; $('#introForm').hidden = false; haveIntro(); };
+function haveIntro() {
+  const sid = $('#iSid').value.trim(), ex = /^[0-9]{4,6}$/.test(sid) ? mine(pubIntro, sid) : null;
+  $('#iHave').hidden = !ex; $('#iSubmit').textContent = ex ? '고쳐서 다시 제출하기' : '제출하기';
+  if (ex && $('#iW1').dataset.from !== ex.id) { $('#iW1').value = ex.w1 || ''; $('#iW2').value = ex.w2 || ''; $('#iNick').value = ex.nick || ''; $('#iW1').dataset.from = ex.id; }
+}
+$('#iSid').addEventListener('input', haveIntro);
 
 /* ================= 교사 관리 모드 ================= */
 function renderTeacherClose() {
@@ -627,17 +558,33 @@ let className = '', archives = [];
 const fmtWhen = (t) => { const d = t?.toDate?.(); if (!d) return '-'; return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DAYS[d.getDay()]}) ${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const ms = (e) => e.at?.getTime?.() ?? Date.now();
 // 지금 기록 전체를 한 문서로 보관 (사진·화면 설정은 그대로 두고 수업 기록만)
-async function saveArchive(memo = '') {
+function archivePayload(memo) {
   const allEntries = entries(), allIntro = introRecords();   // 지금 반 기록만
   if (!allEntries.length && !allIntro.length) return null;
-  const ref = await addDoc(collection(db, 'archives'), {
-    className: className || '반 이름 없음', memo, savedAt: serverTimestamp(),
+  return {
+    className: className || '반 이름 없음', memo,
     entries: allEntries.map((e) => ({ id: e.id, sid: e.sid, nick: e.nick || '', body: e.body, hidden: e.hidden, at: ms(e), name: names.get(e.id)?.name || '' })),
     intro: allIntro.map((e) => ({ id: e.id, sid: e.sid, name: e.name, w1: e.w1, w2: e.w2, nick: e.nick || '', hidden: e.hidden, at: ms(e) })),
     picks, ai: aiSel,
     counts: { intro: new Set(allIntro.map((e) => e.sid)).size, close: allEntries.length, size: classSize() },
-  });
+  };
+}
+async function saveArchive(memo = '') {
+  const data = archivePayload(memo); if (!data) return null;
+  const ref = await addDoc(collection(db, 'archives'), { ...data, savedAt: serverTimestamp() });
   return ref.id;
+}
+/* 그날 수업 자동 저장: 교사 기기가 열려 있으면 반마다 하루 한 칸(auto_반_날짜)에 계속 덮어써서 저장 */
+let autoArchT = null, autoArchSig = '';
+function scheduleAutoArchive() { clearTimeout(autoArchT); autoArchT = setTimeout(autoArchive, 15000); }
+async function autoArchive() {
+  if (!isTeacher) return;
+  const data = archivePayload('자동 저장 (그날 수업)'); if (!data) return;
+  const sig = JSON.stringify([data.className, data.entries, data.intro, data.picks, data.ai]);
+  if (sig === autoArchSig) return;
+  const d = new Date(), ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  try { await setDoc(doc(db, 'archives', `auto_${encodeURIComponent(clsKey())}_${ymd}`), { ...data, auto: true, savedAt: serverTimestamp() }); autoArchSig = sig; }
+  catch (err) { console.error('자동 저장 실패', err); }
 }
 async function commitInChunks(ops) {
   for (let i = 0; i < ops.length; i += 400) { const bt = writeBatch(db); ops.slice(i, i + 400).forEach((f) => f(bt)); await bt.commit(); }
@@ -663,7 +610,7 @@ async function restoreArchive(a) {
 function renderArchives() {
   $('#archRows').innerHTML = archives.length ? archives.map((a) => `<tr data-id="${a.id}">
     <td><b>${esc(a.className)}</b></td><td class="num">${fmtWhen(a.savedAt)}</td>
-    <td class="num">${a.counts?.intro ?? 0}${a.counts?.size ? ` / ${a.counts.size}` : ''}명</td><td class="num">${a.counts?.close ?? 0}편</td><td class="memo">${esc(a.memo || '')}</td>
+    <td class="num">${a.counts?.intro ?? 0}${a.counts?.size ? ` / ${a.counts.size}` : ''}명</td><td class="num">${a.counts?.close ?? 0}편</td><td class="memo">${a.auto ? '<span class="state on">자동</span> ' : ''}${esc(a.memo || '')}</td>
     <td class="act"><div class="row"><button type="button" class="sm primary" data-a="load">불러오기</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
     : '<tr><td colspan="6" class="empty">아직 저장된 수업 기록이 없어요. 수업이 끝나면 💾 지금 기록 저장을 눌러 주세요.</td></tr>';
 }
@@ -725,12 +672,12 @@ async function enterTeacher() {
     onSnapshot(collection(db, 'presents'), (s) => { rulesMissing = false; allPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); }),
     onSnapshot(query(collection(db, 'archives'), orderBy('savedAt', 'desc')), (s) => { archives = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })); renderArchives(); }, onErr),
   ];
-  fillCfgForm(cfg); if (!boardDirty) fillBoardForm(); renderAll();
+  fillCfgForm(cfg); boardUI.teacherOn(); renderAll();
 }
 function leaveTeacher() {
   isTeacher = false; teacherUnsubs.forEach((u) => u()); teacherUnsubs = [];
   allEntries = []; names = new Map(); allIntro = []; allPresents = []; allComments = []; cNames = new Map();
-  $('#lock').hidden = false; $('#tBody').hidden = true; renderAll();
+  $('#lock').hidden = false; $('#tBody').hidden = true; boardUI.teacherOff(); renderAll();
 }
 
 /* ================= 자료 인쇄 (A4) ================= */
@@ -1101,7 +1048,12 @@ async function openPresentForm(editId) {
     urlCls = clsOf(editId); renderFormCls();
   } catch (err) { console.error(err); toast('발표 자료를 불러오지 못했어요'); }
 }
-$('#pNewInstead').onclick = () => { location.hash = submitHash(formCls(), 'present'); resetPresentForm(); };
+// 학번을 적으면 이미 올린 발표를 불러와서 고치게 함
+$('#pSid').addEventListener('input', () => {
+  const sid = $('#pSid').value.trim(); if (!/^[0-9]{4,6}$/.test(sid) || pf.id) return;
+  const id = clsPrefix(formCls()) + sid;
+  if (pubPresents.some((p) => p.id === id)) openPresentForm(id);
+});
 function formPresent() {
   return {
     sid: $('#pSid').value.trim(), name: $('#pName').value.trim(), kind: pKind(), title: $('#pTitle').value.trim(), body: $('#pBody').value.trim(),
@@ -1140,18 +1092,27 @@ $('#presentForm').addEventListener('submit', async (e) => {
       bt.update(doc(db, 'presents', pf.id), data);
       bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: pf.owner || user.uid });
     } else {
-      pf.id = newId('presents', formCls());
-      bt.set(doc(db, 'presents', pf.id), { ...data, owner: user.uid, hidden: false, order: 0, createdAt: serverTimestamp() });
-      bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: user.uid });
-      pf.owner = user.uid;
+      // 한 사람(모둠은 대표 학번) 발표 1개: 문서 ID = 반~학번. 이미 있으면 같은 학번·이름일 때 고쳐짐
+      const id = clsPrefix(formCls()) + x.sid;
+      let ex = null; try { const d = await getDoc(doc(db, 'presents', id)); ex = d.exists() ? d.data() : null; } catch { ex = { owner: '' }; }
+      if (ex) {
+        bt.update(doc(db, 'presents', id), data);
+        bt.set(doc(db, 'presentPhotos', id), { ...photos, owner: ex.owner || user.uid });
+        pf.owner = ex.owner || user.uid;
+      } else {
+        bt.set(doc(db, 'presents', id), { ...data, owner: user.uid, hidden: false, order: 0, createdAt: serverTimestamp() });
+        bt.set(doc(db, 'presentPhotos', id), { ...photos, owner: user.uid });
+        pf.owner = user.uid;
+      }
+      pf.id = id;
     }
     await bt.commit();
     if (!myPresents.includes(pf.id)) { myPresents.push(pf.id); saveMine(); }
     $('#presentForm').hidden = true; $('#pDone').hidden = false; renderMine();
     $('#pDone').dataset.id = pf.id;
   } catch (err) {
-    console.error(err); if (!pf.owner) pf.id = null;
-    $('#pErr').textContent = err.code === 'permission-denied' ? '저장 권한이 없어요. 선생님께 알려 주세요. (선생님: Firebase 규칙에 발표 자료 부분을 게시해야 해요)' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
+    console.error(err); if (!pf.owner || err.code === 'permission-denied') { pf.id = null; pf.owner = ''; }
+    $('#pErr').textContent = err.code === 'permission-denied' ? '이 학번으로 이미 올린 발표가 있어요. 처음 올릴 때와 학번·이름(모둠 이름과 모둠원)이 똑같아야 고칠 수 있어요.' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
   } finally { btn.disabled = false; btn.textContent = label0; }
 });
 async function viewOne(id) {
@@ -1159,7 +1120,6 @@ async function viewOne(id) {
 }
 $('#pDoneView').onclick = () => viewOne($('#pDone').dataset.id);
 $('#pDoneEdit').onclick = () => { $('#pDone').hidden = true; $('#presentForm').hidden = false; };
-$('#pDoneNew').onclick = () => { resetPresentForm(); $('#pDone').hidden = true; $('#presentForm').hidden = false; location.hash = submitHash(formCls(), 'present'); };
 async function renderMine() {
   if (isTeacher || !myPresents.length) { $('#pMine').innerHTML = ''; return; }
   const rows = (await Promise.all(myPresents.map(async (id) => { try { const d = await getDoc(doc(db, 'presents', id)); return d.exists() ? { id, ...d.data() } : null; } catch { return null; } }))).filter(Boolean);
@@ -1249,6 +1209,13 @@ function setPTab(t) {
 }
 document.querySelectorAll('[data-ptab]').forEach((b) => (b.onclick = () => setPTab(b.dataset.ptab)));
 const talkList = () => (isTeacher ? allPresents : pubPresents).filter((p) => clsOf(p.id) === formCls() && !p.hidden).sort(pOrder);
+function haveTalk() {
+  const sid = $('#tSid').value.trim(), ex = talkPid && /^[0-9]{4,6}$/.test(sid) ? commentsAll().find((c) => c.id === `${talkPid}__${sid}`) : null;
+  $('#talkSubmit').textContent = ex ? '댓글 고치기' : '댓글 달기';
+  const ta = $('#talkBody'), key = ex ? ex.id : `${talkPid}|`;
+  if (ta.dataset.from !== key) { if (ex) ta.value = ex.body || ''; else if (ta.dataset.from?.includes('__')) ta.value = ''; ta.dataset.from = key; }
+}
+$('#tSid').addEventListener('input', haveTalk);
 function renderTalk() {
   if ($('#v-present').hidden || pTab !== 'talk') return;
   const list = talkList();
@@ -1268,7 +1235,7 @@ function renderTalk() {
 }
 $('#tList').onclick = (e) => {
   const b = e.target.closest('.t-item'); if (!b) return;
-  talkPid = b.dataset.id; renderTalk(); $('#tSel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  talkPid = b.dataset.id; renderTalk(); haveTalk(); $('#tSel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 $('#talkForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1278,12 +1245,14 @@ $('#talkForm').addEventListener('submit', async (e) => {
   if (bad) { $('#tErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#tErr').textContent = '';
   try {
-    const ref = doc(db, 'pcomments', newId('pcomments', clsOf(talkPid))), bt = writeBatch(db);
+    // 발표 하나에 한 사람 댓글 1개: 문서 ID = 발표ID__학번. 같은 학번·이름이면 고쳐짐
+    const ref = doc(db, 'pcomments', `${talkPid}__${sid}`), bt = writeBatch(db);
     bt.set(ref, { pres: talkPid, sid, type, body, hidden: false, createdAt: serverTimestamp() });
-    bt.set(doc(db, 'pcommentNames', ref.id), { sid, name });
+    const had = commentsAll().some((c) => c.id === ref.id);
+    bt.set(doc(db, 'pcommentNames', ref.id), { sid, name, at: serverTimestamp() });
     await bt.commit();
-    $('#talkBody').value = ''; toast('댓글을 달았어요');   // 학번·이름은 남겨 두어 다음 발표에도 바로 쓰게
-  } catch (err) { console.error(err); $('#tErr').textContent = err.code === 'permission-denied' ? '저장 권한이 없어요. 선생님께 알려 주세요. (선생님: Firebase 규칙을 새로 게시해야 해요)' : '댓글을 달지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
+    toast(had ? '댓글을 고쳤어요' : '댓글을 달았어요'); haveTalk();   // 학번·이름은 남겨 두어 다음 발표에도 바로 쓰게
+  } catch (err) { console.error(err); $('#tErr').textContent = err.code === 'permission-denied' ? '이 학번으로 이 발표에 단 댓글이 이미 있어요. 처음 달 때와 학번·이름이 똑같아야 고칠 수 있어요.' : '댓글을 달지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
 });
 
@@ -1377,7 +1346,7 @@ if (!configured) {
   onSnapshot(doc(db, 'settings', 'classes'), (d) => { classList = Array.isArray(d.data()?.list) ? d.data().list : []; renderClassPicker(); renderClassEditor(); renderAll(); });
   onSnapshot(doc(db, 'settings', 'photos'), (d) => { const x = d.data() || {}; photos = { map: x.map || '', emblem: x.emblem || '' }; applyPhotos(); });
   onSnapshot(doc(db, 'settings', 'ai'), (d) => { aiDoc = d.data() || {}; syncPicks(); renderAll(); });
-  onSnapshot(doc(db, 'settings', 'board'), (d) => { const x = d.data() || {}; board = Object.fromEntries(B_KEYS.map((k) => [k, x[k] || ''])); if (!boardDirty) fillBoardForm(); renderBoard(); });
+  onSnapshot(doc(db, 'settings', 'board'), (d) => boardUI.onRemote(d.data() || null));
   // 교사가 고른 화면(배움 시작/마무리)을 교실 화면이 따라감
   onSnapshot(doc(db, 'settings', 'state'), (d) => {
     const x = d.data() || {}; className = x.className || '';

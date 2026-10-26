@@ -37,16 +37,29 @@ service cloud.firestore {
         && text(request.resource.data.body, 300)
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time;   // (교사는 저장 기록 불러오기 때 원래 시각으로 복원)
-      allow update, delete: if isTeacher();
+      // 한 사람 1개: 같은 학번·이름이면 학생이 고칠 수 있음 (이름 확인은 entryNames를 같은 묶음으로 쓸 때)
+      allow update: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'nick', 'body', 'hidden', 'createdAt'])
+        && request.resource.data.sid == resource.data.sid
+        && (!('nick' in request.resource.data) || text(request.resource.data.nick, 40))
+        && text(request.resource.data.body, 300)
+        && request.resource.data.hidden == resource.data.hidden
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/entryNames/$(id)).data.at == request.time);
+      allow delete: if isTeacher();
     }
 
     // 오늘 배움 마무리: 학생 이름 (교사만 볼 수 있음)
     match /entryNames/{id} {
-      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'name'])
+      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'name', 'at'])
         && validSid(request.resource.data.sid)
         && text(request.resource.data.name, 20)
         && existsAfter(/databases/$(database)/documents/entries/$(id));
-      allow read, update, delete: if isTeacher();
+      // 고칠 때: 학번·이름이 처음과 같아야 함
+      allow update: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'name', 'at'])
+        && request.resource.data.sid == resource.data.sid
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.at == request.time);
+      allow read, delete: if isTeacher();
     }
 
     // 오늘 배움 시작: 연상 단어 + 나의 별명 (원본처럼 학번·이름이 수업 화면에 보임)
@@ -60,7 +73,16 @@ service cloud.firestore {
         && (!('nick' in request.resource.data) || text(request.resource.data.nick, 40))   // 나의 별명 (배움 시작)
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time;
-      allow update, delete: if isTeacher();
+      // 한 사람 1개: 같은 학번·이름이면 학생이 고칠 수 있음
+      allow update: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'name', 'w1', 'w2', 'nick', 'hidden', 'createdAt'])
+        && request.resource.data.sid == resource.data.sid
+        && request.resource.data.name == resource.data.name
+        && text(request.resource.data.w1, 20)
+        && text(request.resource.data.w2, 20)
+        && (!('nick' in request.resource.data) || text(request.resource.data.nick, 40))
+        && request.resource.data.hidden == resource.data.hidden
+        && request.resource.data.createdAt == request.time);
+      allow delete: if isTeacher();
     }
 
     // 🎤 발표 자료: 학생은 자동 익명 로그인으로 올리고, 자기 기기(owner)에서만 다시 고치거나 지울 수 있음
@@ -80,7 +102,9 @@ service cloud.firestore {
         && request.resource.data.hidden == false
         && request.resource.data.order == 0
         && request.resource.data.createdAt == request.time);
-      allow update: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid
+      // 올린 기기(owner)이거나, 학번·이름이 처음과 같으면 고칠 수 있음
+      allow update: if isTeacher() || (request.auth != null
+        && (resource.data.owner == request.auth.uid || (request.resource.data.sid == resource.data.sid && request.resource.data.name == resource.data.name))
         && validPresent(request.resource.data)
         && request.resource.data.diff(resource.data).unchangedKeys().hasAll(['owner', 'hidden', 'order', 'createdAt']));
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
@@ -93,7 +117,9 @@ service cloud.firestore {
         && request.resource.data.owner == request.auth.uid
         && request.resource.data.photos is list && request.resource.data.photos.size() <= 4
         && request.resource.data.caps is list && request.resource.data.caps.size() <= 4
-        && getAfter(/databases/$(database)/documents/presents/$(id)).data.owner == request.auth.uid);
+        && request.resource.data.owner == getAfter(/databases/$(database)/documents/presents/$(id)).data.owner
+        && (getAfter(/databases/$(database)/documents/presents/$(id)).data.owner == request.auth.uid
+          || getAfter(/databases/$(database)/documents/presents/$(id)).data.updatedAt == request.time));
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
     }
 
@@ -108,14 +134,27 @@ service cloud.firestore {
         && text(request.resource.data.body, 300)
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time);
-      allow update, delete: if isTeacher();
+      // 발표 하나에 한 사람 1개: 같은 학번·이름이면 고칠 수 있음
+      allow update: if isTeacher() || (request.resource.data.keys().hasOnly(['pres', 'sid', 'type', 'body', 'hidden', 'createdAt'])
+        && request.resource.data.pres == resource.data.pres
+        && request.resource.data.sid == resource.data.sid
+        && request.resource.data.type in ['내용', '느낀 점', '배운 점', '소감', '질문']
+        && text(request.resource.data.body, 300)
+        && request.resource.data.hidden == resource.data.hidden
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/pcommentNames/$(id)).data.at == request.time);
+      allow delete: if isTeacher();
     }
     match /pcommentNames/{id} {
-      allow create: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'name'])
+      allow create: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'name', 'at'])
         && validSid(request.resource.data.sid)
         && text(request.resource.data.name, 20)
         && existsAfter(/databases/$(database)/documents/pcomments/$(id)));
-      allow read, update, delete: if isTeacher();
+      allow update: if isTeacher() || (request.resource.data.keys().hasOnly(['sid', 'name', 'at'])
+        && request.resource.data.sid == resource.data.sid
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.at == request.time);
+      allow read, delete: if isTeacher();
     }
     // 👏👍❤️ 칭찬: 기기(익명 로그인)마다 발표 하나에 이모지별로 한 번
     match /presentLikes/{id} {
@@ -127,6 +166,11 @@ service cloud.firestore {
         && id == request.resource.data.pres + '_' + request.auth.uid + '_' + request.resource.data.k
         && request.resource.data.at == request.time;
       allow delete: if isTeacher() || (request.auth != null && resource.data.uid == request.auth.uid);
+    }
+
+    // 🧑‍🏫 저장된 판서: 교사만 (지금 칠판은 settings/board)
+    match /boards/{id} {
+      allow read, write: if isTeacher();
     }
 
     // 반별 수업 기록 (학생 이름 포함): 교사만
