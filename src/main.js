@@ -967,6 +967,12 @@ function fitText(box) {
   let fs = parseFloat(getComputedStyle(box).fontSize);
   for (let k = 0; k < 30 && box.scrollHeight > box.clientHeight + 1 && fs > 13; k++) { fs *= 0.92; box.style.fontSize = fs + 'px'; }
 }
+// 발표 제목: 글꼴 위아래 여백 때문에 조금 넘쳐 보이는 것은 무시하고, 화면 높이의 55%를 넘을 만큼 길 때만 줄임
+function fitTitle(h) {
+  if (!h) return; h.style.fontSize = '';
+  let fs = parseFloat(getComputedStyle(h).fontSize); const max = (h.closest('.sl')?.clientHeight || window.innerHeight) * 0.55;
+  for (let k = 0; k < 30 && h.scrollHeight > max && fs > 28; k++) { fs *= 0.92; h.style.fontSize = fs + 'px'; }
+}
 function showSlide() {
   const p = deck.list[deck.pi], n = deck.slides.length, last = deck.si === n - 1, next = deck.list[deck.pi + 1];
   $('#deckStage').innerHTML = deck.slides[deck.si] + (last && next ? `<button type="button" class="sl-next" id="dkNextP">다음 발표: ${esc(next.title)} ▶</button>` : '');
@@ -974,7 +980,7 @@ function showSlide() {
   $('#dkNum').textContent = `${deck.si + 1} / ${n}`;
   $('#dkPrev').disabled = deck.si === 0 && deck.pi === 0;
   $('#dkNext').disabled = last && !next;
-  requestAnimationFrame(() => document.querySelectorAll('#deckStage .sl-body, #deckStage .sl-title h2').forEach(fitText));
+  requestAnimationFrame(() => { document.querySelectorAll('#deckStage .sl-body').forEach(fitText); document.querySelectorAll('#deckStage .sl-title h2').forEach(fitTitle); });
   $('#dkNextP')?.addEventListener('click', (e) => { e.stopPropagation(); deckGo(1); });
   renderDeckTalk();
 }
