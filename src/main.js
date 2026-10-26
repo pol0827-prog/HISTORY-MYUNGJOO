@@ -1122,7 +1122,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
     $('#pDone').dataset.id = pf.id;
   } catch (err) {
     console.error(err); if (!pf.owner || err.code === 'permission-denied') { pf.id = null; pf.owner = ''; }
-    $('#pErr').textContent = err.code === 'permission-denied' ? '이 학번으로 이미 올린 발표가 있어요. 처음 올릴 때와 학번·이름(모둠 이름과 모둠원)이 똑같아야 고칠 수 있어요.' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
+    $('#pErr').textContent = err.code === 'permission-denied' ? '이 발표를 고치지 못했어요. 처음 올릴 때와 같은 학번(모둠은 대표 학번)으로 다시 해 주세요. 그래도 안 되면 선생님께 알려 주세요.' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
   } finally { btn.disabled = false; btn.textContent = label0; }
 });
 async function viewOne(id) {
