@@ -1058,11 +1058,15 @@ async function openPresentForm(editId) {
   } catch (err) { console.error(err); toast('발표 자료를 불러오지 못했어요'); }
 }
 // 학번을 적으면 이미 올린 발표를 불러와서 고치게 함
-$('#pSid').addEventListener('input', () => {
+// 같은 반에서 이 학번이 올린 발표 (예전 방식으로 올린 것까지, 가장 최근 것)
+const findMyPresent = (sid) => (isTeacher ? allPresents : pubPresents).filter((p) => clsOf(p.id) === formCls() && p.sid === sid).sort((a, b) => ts(b) - ts(a))[0];
+function loadMyPresent() {
   const sid = $('#pSid').value.trim(); if (!/^[0-9]{4,6}$/.test(sid) || pf.id) return;
-  const id = clsPrefix(formCls()) + sid;
-  if (pubPresents.some((p) => p.id === id)) openPresentForm(id);
-});
+  const ex = findMyPresent(sid);
+  if (ex) openPresentForm(ex.id).then(() => toast('전에 올린 발표를 불러왔어요. 고치거나 보태서 다시 올려 주세요'));
+}
+$('#pSid').addEventListener('input', loadMyPresent);
+$('#pSid').addEventListener('change', loadMyPresent);
 function formPresent() {
   return {
     sid: $('#pSid').value.trim(), name: $('#pName').value.trim(), kind: pKind(), title: $('#pTitle').value.trim(), body: $('#pBody').value.trim(),
@@ -1103,7 +1107,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
       bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: pf.owner || user.uid });
     } else {
       // 한 사람(모둠은 대표 학번) 발표 1개: 문서 ID = 반~학번. 이미 있으면 같은 학번·이름일 때 고쳐짐
-      const id = clsPrefix(formCls()) + x.sid;
+      const id = findMyPresent(x.sid)?.id || clsPrefix(formCls()) + x.sid;
       let ex = null; try { const d = await getDoc(doc(db, 'presents', id)); ex = d.exists() ? d.data() : null; } catch { ex = { owner: '' }; }
       if (ex) {
         bt.update(doc(db, 'presents', id), data);
