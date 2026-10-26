@@ -125,9 +125,9 @@ service cloud.firestore {
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
     }
 
-    // 🔒 발표 비밀번호 (숫자 4자리): 아무도 읽을 수 없음. 처음 한 번만 정할 수 있고, 바꾸거나 지우는 것은 선생님만
+    // 🔒 발표 비밀번호 (숫자 4자리): 선생님만 볼 수 있음(잊은 학생에게 알려 주기). 처음 한 번만 정할 수 있고, 바꾸거나 지우는 것은 선생님만
     match /presentKeys/{id} {
-      allow read: if false;
+      allow read: if isTeacher();
       allow create: if isTeacher() || (request.auth != null
         && request.resource.data.keys().hasOnly(['pin']) && request.resource.data.pin is string && request.resource.data.pin.matches('^[0-9]{4}$'));
       allow update, delete: if isTeacher();
