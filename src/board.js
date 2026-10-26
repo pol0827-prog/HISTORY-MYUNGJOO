@@ -19,8 +19,9 @@ const COLORS = [
   { c: '#9fd8ff', t: '하늘' }, { c: '#b8f0a0', t: '연두' }, { c: '#ffb870', t: '주황' },
 ];
 const PARTS = [
-  { k: 'unit', t: '대단원명', base: 4 }, { k: 'sub', t: '소단원명', base: 4 }, { k: 'topic', t: '학습 주제', base: 7.4 },
-  { k: 'std', t: '성취기준', base: 3.5 }, { k: 'body', t: '강의 내용', base: 5 },
+  // 대단원·소단원·학습 주제·성취기준은 같은 크기로 (칠판 높이의 4.6%)
+  { k: 'unit', t: '대단원명', base: 4.6 }, { k: 'sub', t: '소단원명', base: 4.6 }, { k: 'topic', t: '학습 주제', base: 4.6 },
+  { k: 'std', t: '성취기준', base: 4.6 }, { k: 'body', t: '강의 내용', base: 5 },
 ];
 const DEF_STYLE = {
   unit: { f: 'pen', s: 100, c: '#9fd8ff' }, sub: { f: 'pen', s: 100, c: '#9fd8ff' }, topic: { f: 'pen', s: 100, c: '#ffe27a' },
