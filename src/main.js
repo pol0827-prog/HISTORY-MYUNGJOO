@@ -34,8 +34,8 @@ const clsOf = (id) => { const i = String(id).indexOf('~'); if (i < 0) return '';
 const rawId = (id) => String(id).slice(String(id).indexOf('~') + 1);
 const newId = (col, c) => clsPrefix(c) + doc(collection(db, col)).id;
 function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => (t.hidden = true), 2400); }
-// 번호(학번 끝 두 자리)는 1번부터 그 반 재적수까지만 (재적수를 안 넣은 반은 28번까지)
-const maxNo = (c) => classList.find((x) => x.name === c)?.size || 28;
+// 번호(학번 끝 두 자리)는 1번부터 28번까지 (재적수가 28명보다 많은 반은 재적수까지)
+const maxNo = (c) => Math.max(28, classList.find((x) => x.name === c)?.size || 0);   // 적어도 28번까지는 받음
 function checkNo(sid) {
   const no = Number(sid.slice(-2)), max = maxNo(formCls());
   return no >= 1 && no <= max ? '' : `번호는 1번부터 ${max}번까지만 낼 수 있어요. 학번을 다시 확인해 주세요. (예: 20101)`;
@@ -989,7 +989,7 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => { if (!$('#deck').hidden) showSlide(); });
 
 /* --- 학생 편집 화면 (올리기 · 고치기) --- */
-const pf = { id: null, photos: [], links: [], owner: '' };
+const pf = { id: null, photos: [], links: [], owner: '', sid: '' };
 let myPresents = []; try { myPresents = JSON.parse(localStorage.getItem('myPresents') || '[]'); } catch { /* 무시 */ }
 const saveMine = () => { try { localStorage.setItem('myPresents', JSON.stringify(myPresents.slice(-20))); } catch { /* 무시 */ } };
 const pKind = () => document.querySelector('input[name=pKind]:checked')?.value || 'solo';
@@ -1036,7 +1036,7 @@ $('#pLinkList').onclick = (e) => { const b = e.target.closest('button'); if (!b)
 $('#pLinkAdd').onclick = () => { pf.links.push({ label: '', url: '' }); renderLinkList(); $('#pLinkList .p-link:last-child .ur').focus(); };
 
 function resetPresentForm() {
-  pf.id = null; pf.photos = []; pf.links = []; pf.owner = '';
+  pf.id = null; pf.photos = []; pf.links = []; pf.owner = ''; pf.sid = '';
   $('#presentForm').reset(); syncKind(); renderPhotoList(); renderLinkList();
   $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; $('#pErr').textContent = '';
 }
@@ -1049,7 +1049,7 @@ async function openPresentForm(editId) {
     if (!d.exists()) { toast('발표 자료를 찾지 못했어요'); return resetPresentForm(); }
     const x = d.data(), photos = await photosOf({ id: editId, nPhotos: x.nPhotos || 0, updatedAt: x.updatedAt });
     resetPresentForm();
-    pf.id = editId; pf.owner = x.owner || ''; pf.photos = photos.map((p) => ({ ...p })); pf.links = (x.links || []).map((l) => ({ label: l.label || '', url: l.url || '' }));
+    pf.id = editId; pf.sid = x.sid || ''; pf.owner = x.owner || ''; pf.photos = photos.map((p) => ({ ...p })); pf.links = (x.links || []).map((l) => ({ label: l.label || '', url: l.url || '' }));
     document.querySelector(`input[name=pKind][value=${x.kind === 'group' ? 'group' : 'solo'}]`).checked = true; syncKind();
     $('#pSid').value = x.sid || ''; $('#pName').value = x.name || ''; $('#pTitle').value = x.title || ''; $('#pBody').value = x.body || '';
     renderPhotoList(); renderLinkList();
@@ -1061,10 +1061,13 @@ async function openPresentForm(editId) {
 // 같은 반에서 이 학번이 올린 발표 (예전 방식으로 올린 것까지, 가장 최근 것)
 const findMyPresent = (sid) => (isTeacher ? allPresents : pubPresents).filter((p) => clsOf(p.id) === formCls() && p.sid === sid).sort((a, b) => ts(b) - ts(a))[0];
 function loadMyPresent() {
-  const sid = $('#pSid').value.trim(); if (!/^[0-9]{4,6}$/.test(sid) || pf.id) return;
+  const sid = $('#pSid').value.trim(); if (!/^[0-9]{4,6}$/.test(sid) || (pf.id && pf.sid === sid)) return;
   const ex = findMyPresent(sid);
-  if (ex) openPresentForm(ex.id).then(() => toast('전에 올린 발표를 불러왔어요. 고치거나 보태서 다시 올려 주세요'));
+  if (ex) { if (ex.id !== pf.id) openPresentForm(ex.id).then(() => toast('전에 올린 발표를 불러왔어요. 고치거나 보태서 다시 올려 주세요')); return; }
+  // 다른 학번: 불러온 발표는 그대로 두고, 지금 쓴 내용은 새 발표로 올라감
+  if (pf.id) { detachPresent(); toast('처음 올린 학번과 달라서 새 발표로 올라가요 (전에 올린 발표는 그대로 남아요)'); }
 }
+function detachPresent() { pf.id = null; pf.owner = ''; pf.sid = ''; $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; }
 $('#pSid').addEventListener('input', loadMyPresent);
 $('#pSid').addEventListener('change', loadMyPresent);
 function formPresent() {
@@ -1102,6 +1105,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
     const data = { ...x, thumb: await makeThumb(), nPhotos: pf.photos.length, updatedAt: serverTimestamp() };
     const photos = { photos: pf.photos.map((p) => p.src), caps: pf.photos.map((p) => p.cap.trim().slice(0, 60)) };
     const bt = writeBatch(db);
+    if (pf.id && pf.sid && pf.sid !== x.sid) detachPresent();   // 학번이 바뀌면 새 발표로
     if (pf.id) {
       bt.update(doc(db, 'presents', pf.id), data);
       bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: pf.owner || user.uid });
@@ -1118,7 +1122,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
         bt.set(doc(db, 'presentPhotos', id), { ...photos, owner: user.uid });
         pf.owner = user.uid;
       }
-      pf.id = id;
+      pf.id = id; pf.sid = x.sid;
     }
     await bt.commit();
     if (!myPresents.includes(pf.id)) { myPresents.push(pf.id); saveMine(); }
