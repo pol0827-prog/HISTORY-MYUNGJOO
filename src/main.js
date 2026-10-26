@@ -1060,17 +1060,42 @@ $('#pLinkList').onclick = (e) => { const b = e.target.closest('button'); if (!b)
 $('#pLinkAdd').onclick = () => { pf.links.push({ label: '', url: '' }); renderLinkList(); $('#pLinkList .p-link:last-child .ur').focus(); };
 
 function resetPresentForm() {
-  pf.id = null; pf.photos = []; pf.links = []; pf.owner = ''; pf.sid = ''; pf.hasPin = false; setPinHelp();
+  pf.id = null; pf.photos = []; pf.links = []; pf.owner = ''; pf.sid = ''; pf.hasPin = false; pendingPres = null; setPinHelp();
   $('#presentForm').reset(); syncKind(); renderPhotoList(); renderLinkList();
   $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; $('#pErr').textContent = '';
 }
-async function openPresentForm(editId) {
+// 🔒 학번 + 비밀번호가 둘 다 맞아야 전에 올린 발표를 불러옴 (선생님 기기는 그냥 열림)
+let pendingPres = null;   // 학번은 맞았고 비밀번호를 기다리는 발표 id
+function askPin(id, sid) {
+  resetPresentForm(); pendingPres = id; $('#pSid').value = sid;
+  $('#pPinHelp').textContent = '이 학번으로 올린 발표가 있어요. 처음 정한 비밀번호 4자리를 넣으면 불러와요';
+  $('#pPin').focus();
+}
+async function tryPin() {
+  const pin = $('#pPin').value.trim(); if (!pendingPres || !/^[0-9]{4}$/.test(pin)) return;
+  const id = pendingPres;
+  try {
+    const user = auth.currentUser || (await signInAnonymously(auth)).user;
+    await setDoc(doc(db, 'presentUnlock', `${user.uid}__${id}`), { pres: id, pin });
+  } catch (err) {
+    if (pendingPres !== id) return;
+    $('#pErr').textContent = err.code === 'permission-denied' ? '🔒 학번과 비밀번호가 맞지 않아요. (잊었으면 선생님께 말씀드려요)' : '확인하지 못했어요. 다시 넣어 주세요.';
+    $('#pPin').value = ''; return;
+  }
+  if (pendingPres !== id) return;
+  pendingPres = null; $('#pErr').textContent = '';
+  await openPresentForm(id, true); $('#pPin').value = pin;
+  toast('전에 올린 발표를 불러왔어요. 고치거나 보태서 다시 올려 주세요');
+}
+$('#pPin').addEventListener('input', tryPin);
+async function openPresentForm(editId, verified) {
   $('#pDone').hidden = true; $('#presentForm').hidden = false; renderMine();
   if (!editId) { if (pf.id) resetPresentForm(); return; }
   if (pf.id === editId) return;
   try {
     const d = await getDoc(doc(db, 'presents', editId));
     if (!d.exists()) { toast('발표 자료를 찾지 못했어요'); return resetPresentForm(); }
+    if (!isTeacher && d.data().hasPin && !verified) return askPin(editId, d.data().sid || '');
     const x = d.data(), photos = await photosOf({ id: editId, nPhotos: x.nPhotos || 0, updatedAt: x.updatedAt });
     resetPresentForm();
     pf.id = editId; pf.sid = x.sid || ''; pf.hasPin = !!x.hasPin; pf.owner = x.owner || ''; pf.photos = photos.map((p) => ({ ...p })); pf.links = (x.links || []).map((l) => ({ label: l.label || '', url: l.url || '' }));
@@ -1085,9 +1110,15 @@ async function openPresentForm(editId) {
 // 같은 반에서 이 학번이 올린 발표 (예전 방식으로 올린 것까지, 가장 최근 것)
 const findMyPresent = (sid) => (isTeacher ? allPresents : pubPresents).filter((p) => clsOf(p.id) === formCls() && p.sid === sid).sort((a, b) => ts(b) - ts(a))[0];
 function loadMyPresent() {
-  const sid = $('#pSid').value.trim(); if (!/^[0-9]{4,6}$/.test(sid) || (pf.id && pf.sid === sid)) return;
+  const sid = $('#pSid').value.trim();
+  if (pendingPres && !(findMyPresent(sid)?.id === pendingPres)) { pendingPres = null; setPinHelp(); $('#pErr').textContent = ''; }
+  if (!/^[0-9]{4,6}$/.test(sid) || (pf.id && pf.sid === sid)) return;
   const ex = findMyPresent(sid);
-  if (ex) { if (ex.id !== pf.id) openPresentForm(ex.id).then(() => toast('전에 올린 발표를 불러왔어요. 고치거나 보태서 다시 올려 주세요')); return; }
+  if (ex) {
+    if (ex.id === pf.id || ex.id === pendingPres) return;
+    if (!isTeacher && ex.hasPin) { if (pf.id) detachPresent(); pendingPres = ex.id; $('#pPinHelp').textContent = '이 학번으로 올린 발표가 있어요. 처음 정한 비밀번호 4자리를 넣으면 불러와요'; $('#pPin').value = ''; return; }
+    openPresentForm(ex.id).then(() => toast('전에 올린 발표를 불러왔어요. 고치거나 보태서 다시 올려 주세요')); return;
+  }
   // 다른 학번: 불러온 발표는 그대로 두고, 지금 쓴 내용은 새 발표로 올라감
   if (pf.id) { detachPresent(); toast('처음 올린 학번과 달라서 새 발표로 올라가요 (전에 올린 발표는 그대로 남아요)'); }
 }
@@ -1146,7 +1177,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
     const bt = writeBatch(db);
     if (pf.id && pf.sid && pf.sid !== x.sid) detachPresent();   // 학번이 바뀌면 새 발표로
     if (pf.id) {
-      if (!(await unlock(pf.id, pf.hasPin))) { $('#pErr').textContent = '🔒 비밀번호가 맞지 않아요. 처음 올릴 때 정한 4자리를 넣어 주세요. (잊었으면 선생님께 말씀드려요)'; return; }
+      if (!(await unlock(pf.id, pf.hasPin))) { $('#pErr').textContent = '🔒 학번과 비밀번호가 맞지 않아요. 처음 올릴 때 정한 4자리를 넣어 주세요. (잊었으면 선생님께 말씀드려요)'; return; }
       bt.update(doc(db, 'presents', pf.id), data);
       bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: pf.owner || user.uid });
       if (!pf.hasPin && pin) bt.set(doc(db, 'presentKeys', pf.id), { pin });
@@ -1155,7 +1186,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
       const id = findMyPresent(x.sid)?.id || clsPrefix(formCls()) + x.sid;
       let ex = null; try { const d = await getDoc(doc(db, 'presents', id)); ex = d.exists() ? d.data() : null; } catch { ex = { owner: '' }; }
       if (ex) {
-        if (!(await unlock(id, !!ex.hasPin))) { $('#pErr').textContent = '🔒 이 학번으로 올린 발표가 이미 있어요. 그 발표의 비밀번호 4자리를 넣어야 고칠 수 있어요.'; return; }
+        if (!(await unlock(id, !!ex.hasPin))) { $('#pErr').textContent = '🔒 학번과 비밀번호가 맞지 않아요. 이 학번으로 올린 발표의 비밀번호 4자리를 넣어 주세요. (잊었으면 선생님께 말씀드려요)'; return; }
         if (!ex.hasPin && pin) bt.set(doc(db, 'presentKeys', id), { pin });
         bt.update(doc(db, 'presents', id), data);
         bt.set(doc(db, 'presentPhotos', id), { ...photos, owner: ex.owner || user.uid });
