@@ -27,15 +27,25 @@ const DEF_STYLE = {
   unit: { f: 'pen', s: 100, c: '#9fd8ff' }, sub: { f: 'pen', s: 100, c: '#9fd8ff' }, topic: { f: 'pen', s: 100, c: '#ffe27a' },
   std: { f: 'pen', s: 100, c: '#e9e5d8' }, body: { f: 'pen', s: 0, c: '#f4f1e8' },   // 강의 내용 s=0 → 자동 맞춤
 };
-const EMPTY = () => ({ id: '', unit: '', sub: '', topic: '', std: '', body: '', body2: '', cols: 1, style: JSON.parse(JSON.stringify(DEF_STYLE)), ink: [], viz: null, noteAlt: null });
+const MAX_PAGES = 5;
+// 여러 바닥(쪽): 머리(대단원·소단원·학습 주제·성취기준·글자 모양)는 함께 쓰고, 바닥마다 강의 내용·2단·필기·구조도가 따로
+const PAGE_KEYS = ['body', 'body2', 'cols', 'ink', 'viz', 'noteAlt'];
+const EMPTY_PAGE = () => ({ body: '', body2: '', cols: 1, ink: [], viz: null, noteAlt: null });
+const EMPTY = () => ({ id: '', unit: '', sub: '', topic: '', std: '', style: JSON.parse(JSON.stringify(DEF_STYLE)), ...EMPTY_PAGE(), pages: [EMPTY_PAGE()], pg: 0 });
 const TXT = ['unit', 'sub', 'topic', 'std', 'body', 'body2'];
+const cleanPage = (b) => ({
+  body: typeof b?.body === 'string' ? b.body : '', body2: typeof b?.body2 === 'string' ? b.body2 : '', cols: b?.cols === 2 ? 2 : 1,
+  ink: Array.isArray(b?.ink) ? b.ink : [], viz: b?.viz && b.viz.data ? b.viz : null,
+  noteAlt: b?.noteAlt && typeof b.noteAlt.body === 'string' ? { body: b.noteAlt.body, body2: b.noteAlt.body2 || '', isOrig: !!b.noteAlt.isOrig } : null,
+});
 const clean = (b) => {
   const x = EMPTY(); if (!b) return x;
-  TXT.forEach((k) => (x[k] = typeof b[k] === 'string' ? b[k] : ''));
-  x.id = b.id || ''; x.cols = b.cols === 2 ? 2 : 1;
+  ['unit', 'sub', 'topic', 'std'].forEach((k) => (x[k] = typeof b[k] === 'string' ? b[k] : ''));
+  x.id = b.id || '';
   PARTS.forEach(({ k }) => (x.style[k] = { ...DEF_STYLE[k], ...(b.style?.[k] || {}) }));
-  x.ink = Array.isArray(b.ink) ? b.ink : []; x.viz = b.viz && b.viz.data ? b.viz : null;
-  x.noteAlt = b.noteAlt && typeof b.noteAlt.body === 'string' ? { body: b.noteAlt.body, body2: b.noteAlt.body2 || '', isOrig: !!b.noteAlt.isOrig } : null;
+  x.pages = Array.isArray(b.pages) && b.pages.length ? b.pages.slice(0, MAX_PAGES).map(cleanPage) : [cleanPage(b)];
+  x.pg = Math.min(Math.max(0, Number(b.pg) || 0), x.pages.length - 1);
+  Object.assign(x, JSON.parse(JSON.stringify(x.pages[x.pg])));
   return x;
 };
 
@@ -45,6 +55,13 @@ export function initBoard(ctx) {
   let dirty = false;            // 저장 안 된 필기·모양 바꾸기
   let editing = false;          // 내용 편집 중
   let saved = [];               // 저장된 판서 목록 (교사)
+  let inkBase = [[]];           // 마지막으로 [저장]한 필기 (바닥마다). 자동 저장에는 필기를 넣지 않음
+  let inkDirty = false;         // 저장 안 한 필기가 있음
+  const syncPage = () => { board.pages[board.pg] = JSON.parse(JSON.stringify(Object.fromEntries(PAGE_KEYS.map((k) => [k, board[k]])))); };
+  function goPage(i) {
+    syncPage(); board.pg = Math.max(0, Math.min(i, board.pages.length - 1));
+    Object.assign(board, JSON.parse(JSON.stringify(board.pages[board.pg])));
+  }
   let unsubSaved = null;
 
   /* ---------- 글자 모양 ---------- */
@@ -107,6 +124,7 @@ export function initBoard(ctx) {
   function renderContent() {
     const b = editing ? draft : board;
     $('#cbContent').innerHTML = (editing ? editHTML(b) : headHTML(b) + bodyHTML(b))
+      + (board.pages.length > 1 ? `<div class="cb-pg">${board.pg + 1} / ${board.pages.length}</div>` : '')
       + `<div class="cb-date" id="cbDate">${dateText(isFull())}</div><div class="cb-tray" aria-hidden="true"><i></i><i class="y"></i><i class="p"></i><b></b></div>`;
     $('#chalkboard').classList.toggle('editing', editing);
     renderTools();
@@ -155,8 +173,8 @@ export function initBoard(ctx) {
     if (b.dataset.tool) tool = b.dataset.tool;
     if (b.dataset.ink) { inkColor = b.dataset.ink; if (tool === 'none' || tool === 'erase') tool = 'pen'; }
     if (b.dataset.w) inkW = Number(b.dataset.w);
-    if (b.dataset.act === 'undo') { if (board.ink.length) { board.ink = board.ink.slice(0, -1); touch(); drawInk(); } }
-    if (b.dataset.act === 'clear') { if (!board.ink.length) return; if (!confirmOnce(b, '한 번 더 누르면 필기를 모두 지워요')) return; board.ink = []; touch(); drawInk(); }
+    if (b.dataset.act === 'undo') { if (board.ink.length) { board.ink = board.ink.slice(0, -1); touchInk(); drawInk(); } }
+    if (b.dataset.act === 'clear') { if (!board.ink.length) return; if (!confirmOnce(b, '한 번 더 누르면 필기를 모두 지워요')) return; board.ink = []; touchInk(); drawInk(); }
     renderTools();
   });
   // 실수로 지우지 않게 두 번 눌러야 하는 버튼
@@ -194,7 +212,7 @@ export function initBoard(ctx) {
     drawInk();
   });
   const endStroke = () => { if (!cur) return; const big = cur.p.length > 2 && (cur.p.length > 4 || Math.hypot(cur.p[2] - cur.p[0], cur.p[3] - cur.p[1]) > 30);
-    if (big || ['pen', 'hl', 'erase'].includes(cur.t)) { board.ink = [...board.ink, cur]; touch(); } cur = null; drawInk(); };
+    if (big || ['pen', 'hl', 'erase'].includes(cur.t)) { board.ink = [...board.ink, cur]; touchInk(); } cur = null; drawInk(); };
   $('#cbInk').addEventListener('pointerup', endStroke); $('#cbInk').addEventListener('pointercancel', endStroke);
 
   function starPts(x1, y1, x2, y2) { const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = Math.abs(x2 - x1) / 2, ry = Math.abs(y2 - y1) / 2, pts = [];
@@ -234,29 +252,55 @@ export function initBoard(ctx) {
          <button type="button" class="sm" data-b="cols">${draft.cols === 2 ? '▥ 1단으로' : '▥ 2단으로 나누기'}</button>
          <button type="button" class="sm danger" data-b="wipe">내용 모두 지우기</button>
          <button type="button" class="sm" data-b="cancel">취소</button>
-         <button type="button" class="primary sm" data-b="done">💾 저장하고 칠판에 보이기</button>`
-      : `${T ? '<button type="button" class="primary sm" data-b="edit">✏️ 내용 쓰기·고치기</button>' : ''}
+         <span class="cb-autonote" id="cbAutoNote">${autoNote}</span>
+         <button type="button" class="primary sm" data-b="done">✔ 다 썼어요</button>`
+      : `${pagesHTML(T)}${T ? '<button type="button" class="primary sm" data-b="edit">✏️ 내용 쓰기·고치기</button>' : ''}
          ${T ? `<button type="button" class="sm" data-b="cols">${board.cols === 2 ? '▥ 1단으로' : '▥ 2단으로 나누기'}</button>` : ''}
          ${T ? `<button type="button" class="sm" data-b="viz">🌳 AI 구조도</button>${v?.data ? `<button type="button" class="sm" data-b="vizToggle">${v.show ? '📝 판서 보기' : '🌳 구조도 보기'}</button>` : ''}` : ''}
          ${T ? '<button type="button" class="sm" data-b="note">🗒️ 노트 필기용 정리</button>' : ''}
          ${T && board.noteAlt ? `<button type="button" class="sm" data-b="noteSwap" title="노트 필기용 정리 전후를 바꿔 보여요">${board.noteAlt.isOrig ? '↩ 정리 전 판서로' : '🗒️ 노트 정리본으로'}</button>` : ''}
-         ${T ? `<button type="button" class="sm ${dirty ? 'primary' : ''}" data-b="save">💾 저장${dirty ? ' ●' : ''}</button>` : ''}
+         ${T ? `<button type="button" class="sm ${inkDirty ? 'primary' : ''}" data-b="save" title="${inkDirty ? '필기는 [저장]을 눌러야 남아요' : '판서가 자동으로 저장되고 있어요'}">💾 저장${inkDirty ? ' (필기) ●' : ''}</button>` : ''}
          <button type="button" class="primary sm" data-b="full">⛶ ${isFull() ? '크게 보기 닫기' : '칠판 크게 보기'}</button>`;
   }
+  // 바닥(쪽) 넘기기 · 추가 · 지우기
+  function pagesHTML(T) {
+    const n = board.pages.length;
+    if (!T && n < 2) return '';
+    return `<span class="cb-pages" role="group" aria-label="칠판 바닥"><button type="button" class="sm" data-b="pgPrev" ${board.pg ? '' : 'disabled'} aria-label="앞 바닥">◀</button>
+      <b>바닥 ${board.pg + 1}/${n}</b><button type="button" class="sm" data-b="pgNext" ${board.pg < n - 1 ? '' : 'disabled'} aria-label="다음 바닥">▶</button>
+      ${T && n < MAX_PAGES ? '<button type="button" class="sm" data-b="pgAdd" title="새 바닥(쪽)을 뒤에 더해요">＋ 바닥</button>' : ''}
+      ${T && n > 1 ? '<button type="button" class="sm danger" data-b="pgDel" title="지금 바닥을 지워요">바닥 지우기</button>' : ''}</span>`;
+  }
+  // 내용 쓰기 중 자동 저장: 손을 멈추고 3초 뒤 칠판에 저장 (필기는 빼고)
+  let autoNote = '', editT, editStart = null;
+  function applyDraft() {
+    readDraft();
+    board = { ...board, unit: draft.unit, sub: draft.sub, topic: draft.topic, std: draft.std, body: draft.body, body2: draft.body2, cols: draft.cols, style: draft.style };
+  }
+  function editAutoSave() {
+    clearTimeout(editT); setAutoNote('입력 중…');
+    editT = setTimeout(async () => { if (!editing) return; applyDraft(); await save('', { auto: true }); setAutoNote('✔ 자동 저장됨'); }, 3000);
+  }
+  function setAutoNote(t) { autoNote = t; const el = $('#cbAutoNote'); if (el) el.textContent = t; }
   $('#cbBar').addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return; const a = b.dataset.b;
-    if (a === 'edit') { draft = clean(board); editing = true; fmtPart = 'topic'; renderAll(); $('#cbContent [data-k=topic]')?.focus(); }
-    if (a === 'cancel') { editing = false; draft = null; renderAll(); }
-    if (a === 'wipe') { if (!confirmOnce(b, '한 번 더 누르면 칠판 글을 모두 비워요 (저장해야 반영돼요)')) return; TXT.forEach((k) => (draft[k] = '')); renderAll(); }
-    if (a === 'done') { readDraft(); board = { ...board, ...Object.fromEntries(TXT.map((k) => [k, draft[k]])), cols: draft.cols, style: draft.style };
+    if (a === 'edit') { editStart = clean({ ...board, pages: (syncPage(), board.pages) }); draft = clean(editStart); editing = true; fmtPart = 'topic'; setAutoNote('쓰는 대로 자동 저장돼요'); renderAll(); $('#cbContent [data-k=topic]')?.focus(); }
+    if (a === 'cancel') { clearTimeout(editT); editing = false; draft = null; if (editStart) { const ink = board.ink; board = editStart; board.ink = ink; editStart = null; await save('', { auto: true }); } renderAll(); toast('쓰기 전으로 되돌렸어요'); }
+    if (a === 'wipe') { if (!confirmOnce(b, '한 번 더 누르면 이 바닥의 글을 모두 비워요')) return; TXT.forEach((k) => (draft[k] = '')); renderAll(); editAutoSave(); }
+    if (a === 'done') { clearTimeout(editT); applyDraft();
       if (board.viz) board.viz = { ...board.viz, show: false };
-      editing = false; draft = null; await save('칠판에 저장했어요'); }
-    if (a === 'cols') { const t = editing ? (readDraft(), draft) : board; t.cols = t.cols === 2 ? 1 : 2; if (!editing) touch(); renderAll(); }
+      editing = false; draft = null; editStart = null; await save('칠판에 저장했어요', { auto: !inkDirty ? false : true }); renderAll(); }
+    if (a === 'cols') { const t = editing ? (readDraft(), draft) : board; t.cols = t.cols === 2 ? 1 : 2; if (editing) editAutoSave(); else touch(); renderAll(); }
+    if (a === 'pgPrev' || a === 'pgNext') { goPage(board.pg + (a === 'pgNext' ? 1 : -1)); renderAll(); if (ctx.isTeacher()) save('', { auto: true }); }
+    if (a === 'pgAdd') { syncPage(); board.pages.splice(board.pg + 1, 0, EMPTY_PAGE()); inkBase.splice(board.pg + 1, 0, []); goPage(board.pg + 1); renderAll(); await save(`바닥 ${board.pg + 1}을 새로 만들었어요`, { auto: true }); }
+    if (a === 'pgDel') { if (!confirmOnce(b, `한 번 더 누르면 바닥 ${board.pg + 1}의 글과 필기를 지워요`)) return;
+      syncPage(); board.pages.splice(board.pg, 1); inkBase.splice(board.pg, 1); board.pg = Math.min(board.pg, board.pages.length - 1);
+      Object.assign(board, JSON.parse(JSON.stringify(board.pages[board.pg]))); renderAll(); await save('바닥을 지웠어요', { auto: true }); }
     if (a === 'noteSwap' && board.noteAlt) {
       const cur = { body: board.body, body2: board.body2, isOrig: !board.noteAlt.isOrig };
       board.body = board.noteAlt.body; board.body2 = board.noteAlt.body2; board.noteAlt = cur;
       if (board.viz) board.viz = { ...board.viz, show: false };
-      renderAll(); await save(cur.isOrig ? '노트 정리본으로 바꿨어요' : '정리 전 원래 판서로 되돌렸어요');
+      renderAll(); await save(cur.isOrig ? '노트 정리본으로 바꿨어요' : '정리 전 원래 판서로 되돌렸어요', { auto: true });
     }
     if (a === 'save') save('판서를 저장했어요');
     if (a === 'full') full();
@@ -265,7 +309,7 @@ export function initBoard(ctx) {
     if (a === 'note') noteAI(b);
   });
   function readDraft() { document.querySelectorAll('#cbContent [data-k]').forEach((el) => (draft[el.dataset.k] = el.value)); }
-  $('#cbContent').addEventListener('input', (e) => { if (editing && e.target.dataset.k) draft[e.target.dataset.k] = e.target.value; });
+  $('#cbContent').addEventListener('input', (e) => { if (editing && e.target.dataset.k) { draft[e.target.dataset.k] = e.target.value; editAutoSave(); } });
 
   /* ---------- 글꼴·크기·색: 내용 쓰기·고치기 안에서, 지금 고르고 있는 칸에 바로 ---------- */
   let fmtPart = 'topic';
@@ -291,9 +335,9 @@ export function initBoard(ctx) {
     if (f === 'auto') st.s = 0;
     if (f === 'color') st.c = b.dataset.c;
     if (f === 'reset') draft.style[fmtPart] = { ...DEF_STYLE[fmtPart] };
-    applyFmtLive();
+    applyFmtLive(); editAutoSave();
   });
-  $('#cbBar').addEventListener('change', (e) => { if (e.target.dataset.f !== 'font' || !editing) return; draft.style[fmtPart].f = e.target.value; applyFmtLive(); });
+  $('#cbBar').addEventListener('change', (e) => { if (e.target.dataset.f !== 'font' || !editing) return; draft.style[fmtPart].f = e.target.value; applyFmtLive(); editAutoSave(); });
   $('#cbPop').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return; const p = b.dataset.p; if (!p) return;
     if (p === 'close') { $('#cbPop').hidden = true; return; }
@@ -330,7 +374,7 @@ export function initBoard(ctx) {
     } catch (err) { console.error(err); toast(`AI를 쓰지 못해서 판서 구조대로 만들었어요 (${err.message})`); }
     if (!data) data = localTree();
     board.viz = { mode, data, show: true }; touch(); $('#cbPop').hidden = true; btn.disabled = false; btn.innerHTML = label;
-    renderAll(); save(byAI ? `AI ${mode === 'web' ? '그물망' : '가지치기'} 구조도를 칠판에 띄웠어요` : '구조도를 칠판에 띄웠어요');
+    renderAll(); save(byAI ? `AI ${mode === 'web' ? '그물망' : '가지치기'} 구조도를 칠판에 띄웠어요` : '구조도를 칠판에 띄웠어요', { auto: true });
   }
   async function callAI(mode, extra = {}) {
     const token = await auth.currentUser?.getIdToken?.(); if (!token) throw new Error('교사 관리 모드에 다시 들어와 주세요');
@@ -392,25 +436,34 @@ export function initBoard(ctx) {
         board.noteAlt = { body: board.body, body2: board.body2, isOrig: true };   // 정리 전 판서 보관 → [↩ 정리 전 판서로]
         board.body = $('#cbNote1').value; if ($('#cbNote2')) board.body2 = $('#cbNote2').value;
         if (board.viz) board.viz = { ...board.viz, show: false };
-        $('#cbPop').hidden = true; renderAll(); await save('노트 필기용으로 정리했어요. [↩ 정리 전 판서로]를 누르면 언제든 되돌려요');
+        $('#cbPop').hidden = true; renderAll(); await save('노트 필기용으로 정리했어요. [↩ 정리 전 판서로]를 누르면 언제든 되돌려요', { auto: true });
       };
     } catch (err) { console.error(err); toast(`정리하지 못했어요: ${err.message}`); }
     finally { btn.disabled = false; btn.textContent = t0; }
   }
   /* ---------- 저장 (지금 칠판 + 저장된 판서 모음) ---------- */
-  let autoT;
-  function touch() { dirty = true; renderBar(); clearTimeout(autoT); if (ctx.isTeacher()) autoT = setTimeout(() => save(''), 4000); }
-  const payload = () => ({ ...Object.fromEntries(TXT.map((k) => [k, board[k]])), cols: board.cols, style: board.style, ink: board.ink, viz: board.viz || null, noteAlt: board.noteAlt || null });
-  async function save(msg) {
-    clearTimeout(autoT);
+  /* 판서(글·2단·글자 모양·구조도·바닥)는 고칠 때마다 자동 저장. 필기는 [💾 저장]을 눌렀을 때만 저장 */
+  let autoT, autoPending = false;
+  function touch() { dirty = true; renderBar(); clearTimeout(autoT); if (ctx.isTeacher()) { autoPending = true; autoT = setTimeout(() => save('', { auto: true }), 2500); } }
+  function touchInk() { inkDirty = true; renderBar(); }
+  function payload(auto) {
+    syncPage();
+    const pages = board.pages.map((p, i) => ({ ...p, ink: auto ? (inkBase[i] || []) : p.ink }));
+    return { unit: board.unit, sub: board.sub, topic: board.topic, std: board.std, style: board.style, pages, pg: board.pg, ...pages[board.pg] };
+  }
+  async function save(msg, { auto = false } = {}) {
+    clearTimeout(autoT); autoPending = false;
     if (!ctx.isTeacher()) { if (msg) toast('저장은 교사 관리 모드로 들어온 기기에서만 할 수 있어요'); return; }
-    const has = TXT.some((k) => board[k].trim()) || board.ink.length;
+    syncPage();
+    const has = ['unit', 'sub', 'topic', 'std'].some((k) => board[k].trim()) || board.pages.some((p) => p.body.trim() || p.body2.trim() || p.ink.length);
     try {
       if (!board.id && has) board.id = doc(collection(db, 'boards')).id;
-      const data = { ...payload(), id: board.id, updatedAt: serverTimestamp() };
+      const data = { ...payload(auto), id: board.id, updatedAt: serverTimestamp() };
       await setDoc(doc(db, 'settings', 'board'), data);
       if (board.id && has) await setDoc(doc(db, 'boards', board.id), { ...data, savedAt: serverTimestamp() });
-      dirty = false; renderBar(); if (msg) toast(msg);
+      dirty = false;
+      if (!auto) { inkBase = board.pages.map((p) => p.ink); inkDirty = false; }
+      renderBar(); if (msg) toast(msg);
     } catch (err) { console.error(err); toast(err.code === 'permission-denied' ? '저장 권한이 없어요. Firebase 규칙을 새로 게시하고 교사 관리 모드에 다시 들어와 주세요' : '저장하지 못했어요. 다시 눌러 주세요'); }
   }
 
@@ -434,26 +487,28 @@ export function initBoard(ctx) {
     const fmt = (t) => { const d = t?.toDate?.(); return d ? `${d.getMonth() + 1}/${d.getDate()} (${DAYS[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '-'; };
     box.innerHTML = saved.length ? saved.map((s) => `<tr data-id="${esc(s.id)}" class="${s.id === board.id ? 'cur' : ''}">
         <td><b>${esc(s.topic || '(학습 주제 없음)')}</b>${s.id === board.id ? ' <span class="state on">지금 칠판</span>' : ''}<div class="muted">${esc([s.unit, s.sub].filter(Boolean).join(' › '))}</div></td>
-        <td class="num">${(s.ink || []).length}개${s.viz?.data ? ' · 🌳' : ''}</td><td class="num">${fmt(s.savedAt)}</td>
+        <td class="num">${(s.pages || [s]).length}바닥 · 필기 ${(s.pages || [s]).reduce((n, p) => n + (p.ink || []).length, 0)}개${(s.pages || [s]).some((p) => p.viz?.data) ? ' · 🌳' : ''}</td><td class="num">${fmt(s.savedAt)}</td>
         <td class="act"><div class="row"><button type="button" class="sm primary" data-a="load">불러오기</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
       : '<tr><td colspan="4" class="empty">아직 저장된 판서가 없어요. 수업 화면의 칠판에서 내용을 쓰고 저장하면 여기에 모여요.</td></tr>';
   }
   $('#bSavedRows')?.addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return; const s = saved.find((x) => x.id === b.closest('tr').dataset.id); if (!s) return;
-    if (b.dataset.a === 'load') { if (dirty) await save(''); board = clean(s); dirty = false; await save(`'${s.topic || '판서'}'를 칠판에 불러왔어요`); renderAll(); }
+    if (b.dataset.a === 'load') { if (dirty || autoPending) await save('', { auto: true }); board = clean(s); inkBase = board.pages.map((p) => p.ink); inkDirty = false; dirty = false; await save(`'${s.topic || '판서'}'를 칠판에 불러왔어요`); renderAll(); }
     if (b.dataset.a === 'del') { if (!confirmOnce(b, '한 번 더 누르면 이 저장 판서를 지워요')) return;
       try { await deleteDoc(doc(db, 'boards', s.id)); toast('저장된 판서를 지웠어요'); } catch { toast('지우지 못했어요'); } }
   });
   $('#bNew')?.addEventListener('click', async (e) => {
     if (!confirmOnce(e.target, '한 번 더 누르면 빈 칠판으로 새로 시작해요 (지금 판서는 저장된 판서에 남아요)')) return;
-    if (dirty) await save(''); const st = board.style; board = EMPTY(); board.style = st; await save('새 칠판을 열었어요'); renderAll();
+    if (dirty || autoPending) await save('', { auto: true }); const st = board.style; board = EMPTY(); board.style = st; inkBase = [[]]; inkDirty = false; await save('새 칠판을 열었어요'); renderAll();
   });
+
+  window.addEventListener('beforeunload', (e) => { if (ctx.isTeacher() && inkDirty) { e.preventDefault(); e.returnValue = ''; } });
 
   /* ---------- 바깥에서 쓰는 것 ---------- */
   function renderAll() { renderContent(); renderBar(); renderSaved(); }
   return {
     render: renderAll,
-    onRemote(x) { if (editing || dirty) return; board = clean(x); renderAll(); },
+    onRemote(x) { if (editing || inkDirty || autoPending) return; board = clean(x); inkBase = board.pages.map((p) => p.ink); renderAll(); },
     teacherOn() { unsubSaved?.(); unsubSaved = onSnapshot(query(collection(db, 'boards'), orderBy('savedAt', 'desc')), (s) => { saved = s.docs.map((d) => ({ ...d.data({ serverTimestamps: 'estimate' }), id: d.id })); renderSaved(); }, console.error); renderAll(); },
     teacherOff() { unsubSaved?.(); unsubSaved = null; saved = []; editing = false; renderAll(); },
   };

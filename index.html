@@ -37,10 +37,12 @@
       <div class="sub intro-only" data-t="{introSubtitle}"></div>
       <div class="sub present-only">학생 · 모둠 발표 자료 업로드 및 댓글 달기</div>
       <div class="sub board-only">오늘의 강의 · 칠판 판서</div>
+      <div class="sub book-only">오늘의 강의 · 교과서 보기</div>
     </div>
     <div class="row">
-      <div class="lesson-switch" role="group" aria-label="칠판 판서, 오늘 배움 시작, 마무리, 배움공유">
+      <div class="lesson-switch" role="group" aria-label="칠판 판서, 교과서 보기, 오늘 배움 시작, 마무리, 배움공유">
         <button type="button" data-lesson="board">🧑‍🏫 칠판 판서</button>
+        <button type="button" data-lesson="book">📖 교과서 보기</button>
         <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
         <button type="button" data-lesson="present">🎤 배움공유<span class="ls-n" data-prescount></span></button>
@@ -62,6 +64,21 @@
       <div class="cb-bar" id="cbBar"></div>
       <div class="cb-pop" id="cbPop" hidden></div>
       <div class="cb-rotate">📱 휴대폰은 가로로 돌리거나 [칠판 크게 보기]를 누르면 화면에 꽉 차게 보여요</div>
+    </section>
+  </div>
+  <div class="contents book-only">
+    <section class="book-wrap" id="bookWrap">
+      <div class="book-stage" id="bookStage">
+        <div class="book-page" id="bookPage" hidden><canvas id="bookCanvas"></canvas><canvas class="bk-ink" id="bkInk" aria-label="교과서 필기"></canvas></div>
+        <div class="book-empty" id="bookEmpty">
+          <span class="bk-title">📖 교과서 보기</span>
+          <p>아래 <b>[📂 자료 올리기]</b>를 누르거나, 교과서 <b>PDF</b>(또는 사진)를 여기로 끌어다 놓으세요.<br>올린 자료와 필기는 <b>이 컴퓨터</b>에 저장돼서 다음 수업에도 바로 열려요.</p>
+          <p class="muted">한글(HWP) 파일은 한글에서 [파일 → PDF로 저장하기]로 PDF를 만든 뒤 올려 주세요.</p>
+        </div>
+      </div>
+      <div class="cb-side bk-side" id="bkSide" role="toolbar" aria-label="필기 도구" hidden></div>
+      <div class="cb-bar" id="bkBar"></div>
+      <div class="cb-pop" id="bkPop" hidden></div>
     </section>
   </div>
   <div class="contents intro-only">
@@ -253,14 +270,20 @@
     <div class="t-cols"><div class="t-main">
     <section class="panel lesson-bar">
       <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다. 칠판 판서는 강의할 때 띄우는 화면이에요.</div></div>
-      <div class="lesson-switch big" role="group" aria-label="칠판 판서, 오늘 배움 시작, 마무리, 배움공유">
+      <div class="lesson-switch big" role="group" aria-label="칠판 판서, 교과서 보기, 오늘 배움 시작, 마무리, 배움공유">
         <button type="button" data-lesson="board">🧑‍🏫 칠판 판서</button>
+        <button type="button" data-lesson="book">📖 교과서 보기</button>
         <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
         <button type="button" data-lesson="present">🎤 배움공유<span class="ls-n" data-prescount></span></button>
       </div>
     </section>
 
+    <section class="panel book-only board-admin">
+      <h2>📖 교과서 보기 <span class="muted">교과서 PDF를 수업 화면에 띄우고 펜·형광펜·도형으로 필기하며 수업해요</span></h2>
+      <p class="muted" style="margin:0 0 10px">자료와 필기는 올린 컴퓨터(브라우저)에만 저장돼요. 교실 수업용 컴퓨터에서 수업 화면을 열고 올려 주세요.</p>
+      <a class="btn primary" href="#class">📺 수업 화면에서 교과서 열기</a>
+    </section>
     <section class="panel board-only board-admin">
       <h2>🧑‍🏫 저장된 판서 <span class="muted">판서는 수업 화면의 칠판에서 바로 쓰고 고쳐요. 저장한 판서는 여기에 모이고, 불러오면 칠판에 바로 보여요</span></h2>
       <div class="row" style="margin-bottom:10px"><a class="btn primary" href="#class">📺 수업 화면 칠판 열기</a><button type="button" id="bNew">➕ 새 칠판으로 시작</button></div>

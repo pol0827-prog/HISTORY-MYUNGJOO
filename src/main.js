@@ -8,6 +8,7 @@ import QRCode from 'qrcode';
 import { db, auth, configured } from './firebase.js';
 import { PRESETS, CFG_KEYS } from './presets.js';
 import { initBoard } from './board.js';
+import { initBook } from './book.js';
 
 document.getElementById('noRun')?.remove();
 
@@ -33,9 +34,16 @@ const clsOf = (id) => { const i = String(id).indexOf('~'); if (i < 0) return '';
 const rawId = (id) => String(id).slice(String(id).indexOf('~') + 1);
 const newId = (col, c) => clsPrefix(c) + doc(collection(db, col)).id;
 function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => (t.hidden = true), 2400); }
+// 번호(학번 끝 두 자리)는 1번부터 그 반 재적수까지만 (재적수를 안 넣은 반은 28번까지)
+const maxNo = (c) => classList.find((x) => x.name === c)?.size || 28;
+function checkNo(sid) {
+  const no = Number(sid.slice(-2)), max = maxNo(formCls());
+  return no >= 1 && no <= max ? '' : `번호는 1번부터 ${max}번까지만 낼 수 있어요. 학번을 다시 확인해 주세요. (예: 20101)`;
+}
 function checkStudent(sid, name) {
   if (!sid) return '학번을 적어 주세요.';
   if (!/^[0-9]{4,6}$/.test(sid)) return '학번은 숫자 4~6자리로 적어 주세요. 예: 20101';
+  if (!isTeacher) { const bad = checkNo(sid); if (bad) return bad; }
   if (!name) return '이름을 적어 주세요.';
   return '';
 }
@@ -112,7 +120,7 @@ $('#cfgForm').addEventListener('submit', async (e) => {
 });
 
 /* ================= 오늘 배움 시작 / 마무리 ================= */
-const LESSONS = ['board', 'intro', 'close', 'present'];
+const LESSONS = ['board', 'book', 'intro', 'close', 'present'];
 function showLesson(m) {
   lesson = LESSONS.includes(m) ? m : 'close';
   document.documentElement.dataset.lesson = lesson;
@@ -121,7 +129,7 @@ function showLesson(m) {
 }
 document.querySelectorAll('button[data-lesson]').forEach((b) => (b.onclick = async () => {
   showLesson(b.dataset.lesson);
-  const msg = { board: '칠판 판서 화면으로 바꿨어요', intro: '오늘 배움 시작 화면으로 바꿨어요', close: '오늘 배움 마무리 화면으로 바꿨어요', present: '배움공유 화면으로 바꿨어요' }[lesson];
+  const msg = { board: '칠판 판서 화면으로 바꿨어요', book: '교과서 보기 화면으로 바꿨어요', intro: '오늘 배움 시작 화면으로 바꿨어요', close: '오늘 배움 마무리 화면으로 바꿨어요', present: '배움공유 화면으로 바꿨어요' }[lesson];
   if (isTeacher) { try { await setDoc(doc(db, 'settings', 'state'), { lesson }, { merge: true }); } catch { /* 이 화면만 바뀜 */ } }
   toast(msg);
 }));
@@ -183,7 +191,8 @@ function renderIntro() {
 }
 /* ================= 🧑‍🏫 칠판 판서 (src/board.js) ================= */
 const boardUI = initBoard({ $, esc, toast, db, auth, DAYS, isTeacher: () => isTeacher, lesson: () => lesson });
-const renderBoard = () => { if (lesson === 'board' || isTeacher) boardUI.render(); };
+const renderBoard = () => { if (lesson === 'board' || isTeacher) boardUI.render(); if (lesson === 'book' && !$('#v-class').hidden) bookUI.show(); };
+const bookUI = initBook({ $, esc, toast, lesson: () => lesson });
 
 function renderAll() { renderBoard(); renderClose(); renderIntro(); renderPresent(); renderTalk(); renderDeckTalk(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); renderTeacherTalk(); scheduleAutoArchive(); } }
 
@@ -208,7 +217,7 @@ $('#qrClose').onclick = () => ($('#qrModal').hidden = true);
 let qfMini = false;
 let qfDrawn = '';
 async function renderQrFloat() {
-  const onClass = !$('#v-class').hidden && configured && lesson !== 'board';
+  const onClass = !$('#v-class').hidden && configured && lesson !== 'board' && lesson !== 'book';
   // 접으면 QR 카드를 아예 치우고, 위쪽 막대의 작은 버튼으로만 남겨서 보드판이 자리를 다 쓰게 함
   $('#qrFloat').hidden = !onClass || qfMini;
   $('#qfOpen').hidden = !onClass || !qfMini;
@@ -1063,6 +1072,7 @@ function formPresent() {
 function checkPresent(x) {
   if (!x.sid) return '학번을 적어 주세요.';
   if (!/^[0-9]{4,6}$/.test(x.sid)) return '학번은 숫자 4~6자리로 적어 주세요. 예: 20101';
+  if (!isTeacher) { const bad = checkNo(x.sid); if (bad) return bad; }
   if (!x.name) return x.kind === 'group' ? '모둠 이름과 모둠원을 적어 주세요.' : '이름을 적어 주세요.';
   if (!x.title) return '발표 제목을 적어 주세요.';
   if (!x.body && !pf.photos.length && !x.links.length) return '발표 내용, 사진, 링크 중 하나는 넣어 주세요.';
@@ -1320,6 +1330,7 @@ function route() {
   let fromNav = false; try { fromNav = sessionStorage.getItem('navOpen') === '1'; } catch { /* 무시 */ }
   $('.topbar .nav').hidden = (v === 'intro' || v === 'write' || v === 'present') && !fromNav && !isTeacher;
   renderQrFloat();
+  if (v === 'class' && lesson === 'book') bookUI.show();
   window.scrollTo(0, 0);
 }
 applyCfg(); fillCfgForm(cfg); showLesson('close');

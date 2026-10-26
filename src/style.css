@@ -697,3 +697,40 @@ body.cb-lock{overflow:hidden}
 .board-wrap:fullscreen .cb-fmt select,.board-wrap.cb-fake-full .cb-fmt select{min-width:0;padding:0 4px;height:20px}
 .board-wrap:fullscreen .cb-fmt .cb-c,.board-wrap.cb-fake-full .cb-fmt .cb-c{width:14px;height:14px}
 .board-wrap:fullscreen .cb-bar:has(.cb-fmt),.board-wrap.cb-fake-full .cb-bar:has(.cb-fmt){opacity:.9}
+/* ================= 📖 교과서 보기 · 칠판 바닥 ================= */
+:root:not([data-lesson="book"]) .book-only{display:none!important}
+:root[data-lesson="book"] .intro-only,:root[data-lesson="book"] .close-only,:root[data-lesson="book"] .present-only,:root[data-lesson="book"] .board-only,
+:root[data-lesson="book"] .not-present,:root[data-lesson="book"] .not-board,:root[data-lesson="book"] .stu-chip,:root[data-lesson="book"] #btnQR{display:none!important}
+:root[data-lesson="book"] .t-cols{grid-template-columns:1fr}
+:root[data-lesson="book"] .t-main{padding-right:0}
+.book-wrap{position:relative;display:flex;flex-direction:column;gap:10px}
+.book-stage{position:relative;height:calc(100vh - var(--tb-h,64px) - 200px);min-height:420px;overflow:auto;background:#2b2f36;border-radius:12px;padding:8px 84px 8px 8px;
+  display:flex;align-items:flex-start;justify-content:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.book-stage.drop{outline:3px dashed var(--orange);outline-offset:-6px}
+.book-page{position:relative;flex:none;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.45);margin:auto}
+.book-page canvas{position:absolute;left:0;top:0;display:block}
+.bk-ink{width:100%;height:100%;pointer-events:none;touch-action:none}
+.bk-ink.on{pointer-events:auto;cursor:crosshair}
+.bk-ink[data-tool="erase"]{cursor:cell}
+.book-empty{margin:auto;max-width:560px;text-align:center;color:#e6ebf5;line-height:1.7;padding:24px}
+.bk-title{display:block;font-size:22px;font-weight:700;margin-bottom:6px}
+.bk-side{position:absolute;top:8px;right:8px;width:70px;bottom:auto;max-height:calc(100% - 70px);border-radius:12px;--cb-u:7px;background:rgba(20,24,30,.85)}
+.bk-side .cb-c{border-color:rgba(255,255,255,.5)}
+.bk-zoom{min-width:44px;text-align:center;font-size:13px}
+.cb-pages{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid var(--line);border-radius:10px}
+.cb-pages b{font-size:13px;white-space:nowrap}
+.cb-pages input{width:52px;padding:2px 4px;text-align:center}
+.cb-autonote{font-size:12px;color:var(--muted);white-space:nowrap}
+.cb-pg{position:absolute;right:calc(var(--cb-u)*5);bottom:calc(var(--cb-u)*4);font-size:calc(var(--cb-u)*3);opacity:.75;z-index:1}
+.book-wrap:fullscreen,.book-wrap.cb-fake-full{background:#1b1e23;width:100vw;height:100vh;gap:0;padding:0}
+.book-wrap.cb-fake-full{position:fixed;inset:0;z-index:300}
+.book-wrap:fullscreen .book-stage,.book-wrap.cb-fake-full .book-stage{height:100vh;border-radius:0;padding:4px 84px 34px 4px}
+.book-wrap:fullscreen .cb-bar,.book-wrap.cb-fake-full .cb-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:2px;z-index:5;opacity:.35;transition:opacity .2s;
+  flex-wrap:nowrap;gap:3px;max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:none;background:rgba(0,0,0,.6);padding:2px 4px;border-radius:8px}
+.book-wrap:fullscreen .cb-bar:hover,.book-wrap.cb-fake-full .cb-bar:hover,.book-wrap .cb-bar:focus-within{opacity:1}
+.book-wrap:fullscreen .cb-bar *,.book-wrap.cb-fake-full .cb-bar *{font-size:10.5px}
+.book-wrap:fullscreen .cb-bar button,.book-wrap:fullscreen .cb-bar .btn,.book-wrap.cb-fake-full .cb-bar button,.book-wrap.cb-fake-full .cb-bar .btn{padding:2px 7px;min-height:0;white-space:nowrap}
+.book-wrap:fullscreen .cb-bar select,.book-wrap:fullscreen .cb-bar input{padding:0 4px;height:20px}
+.book-wrap:fullscreen .cb-pop,.book-wrap.cb-fake-full .cb-pop{position:fixed;bottom:30px}
+.board-wrap:fullscreen .cb-pages,.board-wrap.cb-fake-full .cb-pages{padding:0 3px;gap:2px}
+.board-wrap:fullscreen .cb-pages b,.board-wrap.cb-fake-full .cb-pages b,.board-wrap:fullscreen .cb-autonote,.board-wrap.cb-fake-full .cb-autonote{font-size:10.5px}
