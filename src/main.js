@@ -795,7 +795,7 @@ window.addEventListener('resize', () => { if (!$('#posterModal').hidden) fitPost
 /* ================= 현재 시각 · 밝게/어둡게 ================= */
 function tick() {
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
-  $('#clock').innerHTML = `<small>${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})</small>${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  $('#clock').innerHTML = `<small>${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})</small>${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${p(d.getMinutes())}`;
 }
 tick(); setInterval(tick, 1000);
 function setMode(m) { document.documentElement.dataset.mode = m; $('#modeBtn').textContent = m === 'light' ? '🌙 어둡게' : '☀️ 밝게'; try { localStorage.setItem('mode', m); } catch { /* 무시 */ } }
