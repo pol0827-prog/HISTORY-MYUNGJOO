@@ -375,7 +375,7 @@ body.deck-open{overflow:hidden}
 .sl-title .sl-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2.4vmin;max-height:100%}
 .sl-title.has-photo .sl-tx{flex:1.1}
 .sl-kind{color:#e3b56f;font-weight:700;font-size:clamp(20px,4.2vmin,44px);letter-spacing:.04em}
-.sl-title h2{font-family:var(--display);font-size:clamp(40px,12vmin,140px);line-height:1.2;margin:0;display:block;max-height:60vh;overflow:hidden;text-wrap:balance;overflow-wrap:anywhere}
+.sl-title h2{font-family:var(--display);font-size:clamp(50px,15vmin,180px);line-height:1.2;margin:0;display:block;max-height:60vh;overflow:hidden;text-wrap:balance;overflow-wrap:anywhere}
 .sl-by{font-size:clamp(24px,6vmin,64px);font-weight:600;opacity:.9;overflow-wrap:anywhere}
 .sl-by small{opacity:.6;font-size:.7em}
 .sl-title figure{height:100%}
