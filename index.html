@@ -213,7 +213,7 @@
     </div>
     <div id="pUp">
     <h1 style="font-size:22px;margin-bottom:4px">🎤 발표 자료 올리기</h1>
-    <p class="muted" style="margin:0 0 16px">사진, 링크, 발표 내용을 올리면 발표하기 좋은 화면으로 자동으로 만들어져요. 한 사람(모둠은 대표 학번)이 발표 1개만 올리고, 같은 학번으로 들어오면 언제든 고칠 수 있어요.</p>
+    <p class="muted" style="margin:0 0 16px">사진, 링크, 발표 내용을 올리면 발표하기 좋은 화면으로 자동으로 만들어져요. 한 사람(모둠은 대표 학번)이 발표 1개만 올리고, 같은 학번과 비밀번호를 넣으면 언제든 고칠 수 있어요.</p>
     <div id="pMine"></div>
     <form id="presentForm">
       <div class="form-cls" data-formcls hidden></div>
@@ -228,6 +228,7 @@
       </div>
       <label class="p-pin"><span>🔒 비밀번호 <span class="muted" id="pPinHelp">숫자 4자리 · 처음 올릴 때 정하고, 나중에 고칠 때 꼭 필요해요 (잊지 마세요!)</span></span>
         <input id="pPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="예: 1234" title="숫자 4자리"></label>
+      <div class="pin-remember">⚠️ 최초 등록 시의 학번과 비밀번호 숫자 4자리를 꼭 기억하세요.</div>
       <label>발표 제목 <input id="pTitle" required maxlength="60" placeholder="예: 나폴레옹은 영웅인가, 독재자인가?"></label>
       <label>발표 내용 <span class="muted">빈 줄로 나누면 발표 화면이 한 장씩 넘어가요. 줄 앞에 - 를 쓰면 글머리표, # 을 쓰면 소제목이 돼요.</span>
         <textarea id="pBody" maxlength="3000" rows="9" placeholder="# 발표 주제를 고른 까닭&#10;- 나폴레옹은 프랑스 혁명의 이념을 유럽에 퍼뜨렸다&#10;- 하지만 스스로 황제가 되었다&#10;&#10;# 우리 모둠의 생각&#10;혁명의 정신을 지킨 사람인지, 혁명을 끝낸 사람인지 함께 생각해 보자."></textarea></label>
@@ -244,7 +245,8 @@
     </form>
     <div class="done" id="pDone" hidden>
       <div class="big">올리기 완료!</div>
-      <div class="muted">수업 화면의 발표 자료에 올라갔어요. 이 휴대폰에서 언제든 다시 고칠 수 있어요.</div>
+      <div class="muted">수업 화면의 발표 자료에 올라갔어요. 같은 학번과 비밀번호를 넣으면 언제든 다시 고칠 수 있어요.</div>
+      <div class="pin-remember">⚠️ 최초 등록 시의 학번과 비밀번호 숫자 4자리를 꼭 기억하세요.</div>
       <div class="row" style="justify-content:center"><button type="button" id="pDoneView">발표 화면 보기</button><button type="button" id="pDoneEdit">✏️ 고치기</button></div>
     </div>
     </div>
