@@ -40,6 +40,22 @@ function checkNo(sid) {
   const no = Number(sid.slice(-2)), max = maxNo(formCls());
   return no >= 1 && no <= max ? '' : `번호는 1번부터 ${max}번까지만 낼 수 있어요. 학번을 다시 확인해 주세요. (예: 20101)`;
 }
+/* 학생 제출(배움 시작·배움 마무리, 배움공유는 제외): 이 기기에서 처음 낸 학번·이름으로만 다시 내고 고칠 수 있음 (반마다, 날마다) */
+const identKey = () => { const d = new Date(); return `stuId:${formCls() || '_'}:${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function myIdent() { try { return JSON.parse(localStorage.getItem(identKey()) || 'null'); } catch { return null; } }
+function checkIdent(sid, name) {
+  if (isTeacher) return ''; const m = myIdent(); if (!m) return '';
+  return m.sid === sid && m.name === name ? '' : `이 기기에서는 처음 낸 학번·이름(${m.sid} ${m.name})으로만 내거나 고칠 수 있어요.`;
+}
+function rememberIdent(sid, name) { if (isTeacher) return; try { if (!myIdent()) localStorage.setItem(identKey(), JSON.stringify({ sid, name })); } catch { /* 무시 */ } }
+// 처음 낸 학번·이름을 미리 채워 줌
+function fillIdent() {
+  const m = myIdent(); if (!m || isTeacher) return;
+  [['#iSid', '#iName'], ['#wSid', '#wName']].forEach(([a, b]) => {
+    if (!$(a).value) { $(a).value = m.sid; $(a).dispatchEvent(new Event('input')); }
+    if (!$(b).value) $(b).value = m.name;
+  });
+}
 function checkStudent(sid, name) {
   if (!sid) return '학번을 적어 주세요.';
   if (!/^[0-9]{4,6}$/.test(sid)) return '학번은 숫자 4~6자리로 적어 주세요. 예: 20101';
@@ -318,7 +334,7 @@ function renderFormCls() {
 $('#diaryForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const sid = $('#wSid').value.trim(), name = $('#wName').value.trim(), body = $('#wBody').value.trim(), nick = introNick(sid, formCls());
-  const bad = checkStudent(sid, name) || (!body ? '일기를 적어 주세요.' : '');
+  const bad = checkStudent(sid, name) || checkIdent(sid, name) || (!body ? '일기를 적어 주세요.' : '');
   if (bad) { $('#wErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#wErr').textContent = '';
   try {
@@ -329,7 +345,7 @@ $('#diaryForm').addEventListener('submit', async (e) => {
     batch.set(ref, { sid, ...(nick ? { nick } : {}), body, hidden: false, createdAt: serverTimestamp() });
     batch.set(doc(db, 'entryNames', ref.id), { sid, name, at: serverTimestamp() });
     await batch.commit();
-    e.target.hidden = true; $('#done').hidden = false;
+    rememberIdent(sid, name); e.target.hidden = true; $('#done').hidden = false;
   } catch (err) { console.error(err); $('#wErr').textContent = err.code === 'permission-denied' ? SAME_MSG : '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
 });
@@ -354,12 +370,12 @@ $('#wSid').addEventListener('input', showWriteNick);
 $('#introForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const sid = $('#iSid').value.trim(), name = $('#iName').value.trim(), w1 = normW($('#iW1').value), w2 = normW($('#iW2').value), nick = $('#iNick').value.trim();
-  const bad = checkStudent(sid, name) || (!w1 || !w2 ? '떠오르는 단어 2개를 모두 적어 주세요.' : '') || (!nick ? '별명을 적어 주세요.' : '');
+  const bad = checkStudent(sid, name) || checkIdent(sid, name) || (!w1 || !w2 ? '떠오르는 단어 2개를 모두 적어 주세요.' : '') || (!nick ? '별명을 적어 주세요.' : '');
   if (bad) { $('#iErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#iErr').textContent = '';
   try {
     await setDoc(doc(db, 'intro', mine(pubIntro, sid)?.id || clsPrefix(formCls()) + sid), { sid, name, w1, w2, nick, hidden: false, createdAt: serverTimestamp() });
-    e.target.hidden = true; $('#iDone').hidden = false;
+    rememberIdent(sid, name); e.target.hidden = true; $('#iDone').hidden = false;
   } catch (err) { console.error(err); $('#iErr').textContent = err.code === 'permission-denied' ? SAME_MSG : '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
 });
@@ -1342,6 +1358,7 @@ function route() {
   urlCls = (v === 'intro' || v === 'write' || v === 'present') ? prm.get('c') : null;
   if (v === 'present') { openPresentForm(prm.get('edit')); setPTab(prm.get('edit') ? 'up' : (prm.get('tab') || pTab)); }
   renderFormCls();
+  if (v === 'intro' || v === 'write') setTimeout(fillIdent, 600);
   V.forEach((x) => ($('#v-' + x).hidden = x !== v));
   document.querySelectorAll('.topbar .nav a').forEach((l) => (l.dataset.v === v ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current')));
   // QR로 바로 들어온 학생에게는 메뉴를 숨기고, 위쪽 메뉴를 눌러 미리보기로 들어온 경우에는 보여 줌
