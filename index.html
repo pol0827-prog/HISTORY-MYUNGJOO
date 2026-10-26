@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>배움 일기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 </head>
 <body>
 <style>#noRun{visibility:hidden;animation:noRunShow 0s 1.5s forwards}@keyframes noRunShow{to{visibility:visible}}</style>
@@ -36,20 +36,32 @@
       <div class="sub close-only" data-t="{subtitle}"></div>
       <div class="sub intro-only" data-t="{introSubtitle}"></div>
       <div class="sub present-only">학생 · 모둠 발표 자료 업로드 및 댓글 달기</div>
+      <div class="sub board-only">오늘의 강의 · 칠판 판서</div>
     </div>
     <div class="row">
-      <div class="lesson-switch" role="group" aria-label="오늘 배움 시작, 마무리, 배움공유">
+      <div class="lesson-switch" role="group" aria-label="칠판 판서, 오늘 배움 시작, 마무리, 배움공유">
+        <button type="button" data-lesson="board">🧑‍🏫 칠판 판서</button>
         <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
         <button type="button" data-lesson="present">🎤 배움공유<span class="ls-n" data-prescount></span></button>
       </div>
       <span class="chip cls-chip" id="clsChip" hidden></span>
       <span class="chip stu-chip">학생 수: <span id="cStu">0</span>명</span>
-      <button type="button" class="cls-print" data-poster title="지금 화면을 A4·B4 한 장으로 예쁘게 정리해 인쇄">🖨️ 게시용 인쇄</button>
+      <button type="button" class="cls-print not-board" data-poster title="지금 화면을 A4·B4 한 장으로 예쁘게 정리해 인쇄">🖨️ 게시용 인쇄</button>
       <button type="button" id="btnQR" class="primary" hidden><span class="close-only" data-t="{subject} 일기 제출 QR 코드"></span><span class="intro-only">연상 단어 제출 QR 코드</span></button>
 
     </div>
   </header>
+  <div class="contents board-only">
+    <section class="board-wrap" id="boardWrap">
+      <div class="chalkboard" id="chalkboard"></div>
+      <div class="cb-rotate">📱 휴대폰은 가로로 돌리거나 [칠판 가로 전체 화면]을 누르면 크게 보여요</div>
+      <div class="cb-tools">
+        <button type="button" class="sm" id="cbFont" title="글씨 크기">가 글씨 크기: 자동</button>
+        <button type="button" class="primary sm" id="cbFull">⛶ 칠판 가로 전체 화면</button>
+      </div>
+    </section>
+  </div>
   <div class="contents intro-only">
     <div class="pair">
       <section class="panel stat-card"><div class="muted">👥 연상 단어 제출 학생 수</div><b class="big-num" id="iCount">0명</b></section>
@@ -59,7 +71,8 @@
       <section class="panel"><h2>☁️ 학생 연상 단어 구름 (Word Cloud)</h2><div class="cloud" id="cloud"></div></section>
       <section class="panel"><h2>📊 연상 단어 제출 빈도 Top 5 (막대그래프)</h2><div class="bars" id="bars"></div></section>
     </div>
-    <section class="panel"><h2 data-t="📖 학생별 {subject} 연상 단어 제출 목록"></h2><div class="list" id="iList"></div></section>
+    <section class="panel"><h2 data-t="📖 학생별 {subject} 연상 단어 · 별명 제출 목록"></h2><div class="list" id="iList"></div></section>
+    <section class="panel best"><h2 style="color:var(--orange)" data-t="✨ 오늘의 {subject} 별명 명작 추천"></h2><div class="trio" id="trio"></div></section>
   </div>
   <div class="contents close-only">
   <div class="panel kw" id="kw"></div>
@@ -71,7 +84,6 @@
     <section class="panel"><h2>🏆 선생님 추천 일기</h2><div class="quote-o" id="tQuote"></div><div class="by" id="tBy"></div></section>
     <section class="panel"><h2>🤖 AI 추천 일기</h2><div class="quote-g" id="aiQuote"></div><div class="by" id="aiBy"></div><div class="why" id="aiWhy"></div></section>
   </div>
-  <section class="panel best"><h2 style="color:var(--orange)" data-t="✨ 오늘의 {subject} 별명 명작 추천"></h2><div class="trio" id="trio"></div></section>
   </div>
   <div class="contents present-only">
     <section class="panel">
@@ -79,7 +91,7 @@
       <div class="pgrid" id="pGrid"></div>
     </section>
   </div>
-  <footer class="panel not-present">
+  <footer class="panel not-present not-board">
     <div class="close-only">
       <blockquote><span data-t="&quot;{quote}&quot;"></span> <cite data-t="- {quoteBy} -"></cite></blockquote>
       <p data-t="{closing}"></p>
@@ -94,7 +106,7 @@
 <!-- ===== 학생 제출 (배움 시작) ===== -->
 <div class="page" id="v-intro" hidden>
   <section class="panel write">
-    <h1 style="font-size:22px;margin-bottom:4px" data-t="💡 {subject} 연상 단어"></h1>
+    <h1 style="font-size:22px;margin-bottom:4px" data-t="💡 {subject} 연상 단어 · 별명"></h1>
     <p class="muted" style="margin:0 0 16px" data-t="{introHelp}"></p>
     <form id="introForm">
       <div class="form-cls" data-formcls hidden></div>
@@ -106,12 +118,14 @@
         <label>떠오르는 단어 1 <input id="iW1" required maxlength="20" placeholder="단어 하나"></label>
         <label>떠오르는 단어 2 <input id="iW2" required maxlength="20" placeholder="단어 하나"></label>
       </div>
+      <label><span data-t="나의 {subject} 별명"></span> <span class="muted" data-t="{nickHelp}"></span>
+        <input id="iNick" required maxlength="40" data-ph="{nickEx}"></label>
       <button type="submit" class="primary">제출하기</button>
       <div class="err" id="iErr"></div>
     </form>
     <div class="done" id="iDone" hidden>
       <div class="big">제출 완료!</div>
-      <div class="muted">수업 화면의 단어 구름에 내 단어가 들어갔어요.</div>
+      <div class="muted">수업 화면의 단어 구름에 내 단어와 별명이 들어갔어요.</div>
       <button type="button" id="iAgain">다시 쓰기</button>
     </div>
   </section>
@@ -128,8 +142,6 @@
         <label>학번 <input id="wSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="예: 20101" title="숫자 4~6자리로 적어 주세요"></label>
         <label>이름 <input id="wName" required maxlength="20" placeholder="예: 홍길동"></label>
       </div>
-      <label><span data-t="나의 {subject} 별명"></span> <span class="muted" data-t="{nickHelp}"></span>
-        <input id="wNick" required maxlength="40" data-ph="{nickEx}"></label>
       <label><span data-t="오늘의 {subject} 배움 일기"></span> <span class="muted" data-t="{bodyHelp}"></span>
         <textarea id="wBody" required maxlength="300" placeholder="오늘 수업에서 배우고 느낀 점을 적어 보세요."></textarea></label>
       <button type="submit" class="primary">제출하기</button>
@@ -233,12 +245,30 @@
 
     <div class="t-cols"><div class="t-main">
     <section class="panel lesson-bar">
-      <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다.</div></div>
-      <div class="lesson-switch big" role="group" aria-label="오늘 배움 시작, 마무리, 배움공유">
+      <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다. 칠판 판서는 강의할 때 띄우는 화면이에요.</div></div>
+      <div class="lesson-switch big" role="group" aria-label="칠판 판서, 오늘 배움 시작, 마무리, 배움공유">
+        <button type="button" data-lesson="board">🧑‍🏫 칠판 판서</button>
         <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
         <button type="button" data-lesson="present">🎤 배움공유<span class="ls-n" data-prescount></span></button>
       </div>
+    </section>
+
+    <section class="panel board-only board-admin">
+      <h2>🧑‍🏫 칠판 판서 <span class="muted">적어 두면 수업 화면이 칠판에 분필로 쓴 것처럼 바뀌어요. 강의하면서 화면을 보고 설명하세요</span></h2>
+      <form id="boardForm" class="cfg">
+        <label class="wide-half">대단원명 <input id="b-unit" maxlength="60" placeholder="예: Ⅳ. 제국주의와 두 차례 세계 대전"></label>
+        <label class="wide-half">소단원명 <input id="b-sub" maxlength="60" placeholder="예: 2. 제2차 세계 대전"></label>
+        <label class="wide">학습 주제 <input id="b-topic" maxlength="80" placeholder="예: 제2차 세계 대전은 어떻게 전개되었을까?"></label>
+        <label class="wide">성취기준 <textarea id="b-std" maxlength="300" rows="2" placeholder="예: [12세사04-03] 두 차례 세계 대전의 원인과 전개 과정을 파악하고, …"></textarea></label>
+        <label class="wide">오늘의 강의 내용 <span class="muted">한 줄 = 칠판 한 줄 · <b># 소제목</b>(노란 분필) · <b>- 내용</b>(글머리표) · <b>! 중요</b>(분홍 분필) · <b>→ 화살표</b> · 빈 줄로 칸 띄우기</span>
+          <textarea id="b-body" maxlength="3000" rows="12" placeholder="# 1. 전쟁의 시작&#10;- 1939. 9. 독일의 폴란드 침공 → 영국·프랑스 선전 포고&#10;- 독일의 전격전 → 파리 함락(1940)&#10;&#10;# 2. 전쟁의 확대&#10;- 1941. 6. 독소 불가침 조약 파기, 소련 침공&#10;- 1941. 12. 일본의 진주만 공습 → 태평양 전쟁&#10;! 미국의 참전으로 전쟁이 세계 대전으로 확대"></textarea></label>
+        <div class="row wide" style="justify-content:space-between">
+          <div class="row"><button type="button" class="sm" id="bClearBody">강의 내용만 지우기</button><span class="muted" id="bSaved"></span></div>
+          <div class="row"><button type="button" class="sm" id="bPreviewFull">⛶ 칠판 크게 미리보기</button><button type="submit" class="primary">칠판에 쓰기 (저장)</button></div>
+        </div>
+      </form>
+      <div class="cb-mini" id="cbMini"></div>
     </section>
 
     <section class="panel arch">
@@ -290,14 +320,22 @@
         <div class="stat"><b id="isWords">0</b><span>서로 다른 단어</span></div>
       </div>
       <section class="panel">
-        <h2>🗂️ 제출된 연상 단어 <span class="muted" id="iCnt"></span></h2>
+        <h2>📌 별명 명작 추천 <span class="muted">학생들이 배움 시작에서 낸 별명 중 골라 수업 화면에 보여 줘요</span></h2>
+        <div class="picks">
+          <label>✨ 별명 명작 추천 1 <select id="pB1"></select></label>
+          <label>✨ 별명 명작 추천 2 <select id="pB2"></select></label>
+          <label>✨ 별명 명작 추천 3 <select id="pB3"></select></label>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>🗂️ 제출된 연상 단어 · 별명 <span class="muted" id="iCnt"></span></h2>
         <div class="row" style="margin-bottom:12px">
-          <input id="iq" type="search" placeholder="학번·이름·단어 검색" aria-label="검색" style="flex:1">
+          <input id="iq" type="search" placeholder="학번·이름·단어·별명 검색" aria-label="검색" style="flex:1">
           <button type="button" class="danger" id="iClearAll">배움 시작 기록 전체 비우기</button>
         </div>
         <div id="iClearBox"></div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>학번</th><th>이름</th><th>단어 1</th><th>단어 2</th><th>제출 시각</th><th>상태</th><th>관리</th></tr></thead>
+          <thead><tr><th>학번</th><th>이름</th><th>단어 1</th><th>단어 2</th><th>별명</th><th>제출 시각</th><th>상태</th><th>관리</th></tr></thead>
           <tbody id="iRows"></tbody>
         </table></div>
       </section>
@@ -315,9 +353,6 @@
       <h2>📌 수업 화면에 보일 추천</h2>
       <div class="picks">
         <label>🏆 선생님 추천 일기 <select id="pTeacher"></select></label>
-        <label>✨ 별명 명작 추천 1 <select id="pB1"></select></label>
-        <label>✨ 별명 명작 추천 2 <select id="pB2"></select></label>
-        <label>✨ 별명 명작 추천 3 <select id="pB3"></select></label>
       </div>
       <div class="ai-box">
         <div class="row" style="justify-content:space-between">
@@ -333,19 +368,6 @@
     </div>
 
 
-    <section class="panel">
-      <h2>🖨️ 자료 인쇄</h2>
-      <div class="prints">
-        <button type="button" class="poster-btn" data-poster><b>🖼️ 수업 화면 게시용</b><span>지금 화면(배움 시작·마무리·배움공유)의 학생 글 전부를 A4·B4 한 장에 맞춰 교실 게시</span></button>
-        <button type="button" class="intro-only" data-print="iall"><b>연상 단어 전체</b><span>학번순 표 · 숨긴 제출 제외</span></button>
-        <button type="button" class="intro-only" data-print="iboard"><b>연상 단어 정리 한 장</b><span>Top 3 · 빈도표 · 단어 모음</span></button>
-        <button type="button" class="close-only" data-print="all"><b>학생 일기 전체</b><span>학번순 표 · 숨긴 일기 제외</span></button>
-        <button type="button" class="close-only" data-print="picks"><b>오늘의 추천 모음</b><span>선생님 추천 · AI 추천 · 별명 명작</span></button>
-        <button type="button" class="close-only" data-print="board"><b>수업 정리 한 장</b><span>키워드 Top 5 · 별명 목록 · 명언</span></button>
-        <button type="button" class="close-only" data-print="cards"><b>학생별 카드</b><span>잘라서 나눠 주는 카드 형식</span></button>
-      </div>
-    </section>
-
     <section class="panel close-only">
       <h2>🗂️ 제출된 일기 <span class="muted" id="cnt"></span></h2>
       <div class="row" style="margin-bottom:12px">
@@ -358,6 +380,17 @@
         <thead><tr><th>학번</th><th>이름</th><th>별명</th><th>일기 내용</th><th>제출 시각</th><th>상태</th><th>관리</th></tr></thead>
         <tbody id="rows"></tbody>
       </table></div>
+    </section>
+
+    <section class="panel not-board">
+      <h2>🖨️ 자료 인쇄</h2>
+      <div class="prints">
+        <button type="button" class="poster-btn not-board" data-poster><b>🖼️ 수업 화면 게시용</b><span>지금 화면(배움 시작·마무리·배움공유)의 학생 글 전부를 A4·B4 한 장에 맞춰 교실 게시</span></button>
+        <button type="button" class="intro-only" data-print="iall"><b>연상 단어 전체</b><span>학번순 표(별명 포함) · 숨긴 제출 제외</span></button>
+        <button type="button" class="intro-only" data-print="iboard"><b>연상 단어 정리 한 장</b><span>Top 3 · 빈도표 · 단어 모음</span></button>
+        <button type="button" class="close-only" data-print="all"><b>학생 일기 전체</b><span>학번순 표 · 숨긴 일기 제외</span></button>
+        <button type="button" class="close-only" data-print="picks"><b>오늘의 추천 모음</b><span>선생님 추천 · AI 추천 · 별명 명작</span></button>
+      </div>
     </section>
 
     <section class="panel">
@@ -373,6 +406,15 @@
     </section>
     </div>
     <aside class="t-side">
+    <section class="panel">
+      <h2>🏫 수업 들어가는 반 <span class="muted">반과 재적수를 미리 넣어 두면 "지금 수업하는 반"에서 고를 수 있고, 수업 화면에 제출 학생 수 / 재적수가 보여요</span></h2>
+      <div class="cls-list" id="clsList"></div>
+      <div class="row" style="margin-top:10px">
+        <button type="button" class="sm" id="clsAdd">+ 반 추가</button>
+        <button type="button" class="primary sm" id="clsListSave">반 목록 저장</button>
+      </div>
+    </section>
+
     <section class="panel">
       <h2>🖼️ 수업 화면 사진 <span class="muted">사진을 고르면 크기를 알맞게 줄여서 저장하고, 수업 화면에 바로 바뀌어요</span></h2>
       <div class="photos">
@@ -396,12 +438,6 @@
     </section>
 
     <section class="panel">
-      <h2>🏫 수업 들어가는 반 <span class="muted">반과 재적수를 미리 넣어 두면 "지금 수업하는 반"에서 고를 수 있고, 수업 화면에 제출 학생 수 / 재적수가 보여요</span></h2>
-      <div class="cls-list" id="clsList"></div>
-      <div class="row" style="margin:10px 0 22px">
-        <button type="button" class="sm" id="clsAdd">+ 반 추가</button>
-        <button type="button" class="primary sm" id="clsListSave">반 목록 저장</button>
-      </div>
       <h2>⚙️ 화면 설정 <span class="muted">과목과 수업에 맞게 문구를 바꾸면 수업 화면·학생 제출·인쇄물에 모두 반영돼요</span></h2>
       <div class="row" style="margin-bottom:12px">
         <span class="muted">예시 불러오기</span>
@@ -418,9 +454,9 @@
         <label class="wide">부제 (배움 시작) <input id="c-introSubtitle" maxlength="80"></label>
         <label class="wide">연상 단어 안내 (학생 배움 시작 제출 화면) <input id="c-introHelp" maxlength="80"></label>
         <label class="wide">오른쪽 그림 칸 제목 <input id="c-side" maxlength="60"></label>
-        <label>별명 설명 (학생 제출 화면) <input id="c-nickHelp" maxlength="60"></label>
+        <label>별명 설명 (학생 배움 시작 제출 화면) <input id="c-nickHelp" maxlength="60"></label>
         <label>별명 예시 <input id="c-nickEx" maxlength="30"></label>
-        <label class="wide">일기 설명 (학생 제출 화면) <input id="c-bodyHelp" maxlength="80"></label>
+        <label class="wide">일기 설명 (학생 배움 마무리 제출 화면) <input id="c-bodyHelp" maxlength="80"></label>
         <label class="wide">명언 (배움 시작) <input id="c-introQuote" maxlength="80"></label>
         <label>명언 출처 (배움 시작) <input id="c-introQuoteBy" maxlength="30"></label>
         <label class="wide">아래 문장 (배움 시작) <input id="c-introClosing" maxlength="120"></label>
@@ -446,10 +482,11 @@
 
 <div class="modal" id="iEditModal" hidden>
   <div class="modal-card" role="dialog" aria-label="연상 단어 수정">
-    <strong style="font-size:16px">연상 단어 수정</strong>
+    <strong style="font-size:16px">연상 단어 · 별명 수정</strong>
     <form id="iEditForm" style="display:flex;flex-direction:column;gap:12px">
       <div class="row2"><label>학번 <input id="ieSid" required maxlength="6"></label><label>이름 <input id="ieName" required maxlength="20"></label></div>
       <div class="row2"><label>단어 1 <input id="ieW1" required maxlength="20"></label><label>단어 2 <input id="ieW2" required maxlength="20"></label></div>
+      <label>별명 <input id="ieNick" maxlength="40"></label>
       <div class="row" style="justify-content:flex-end"><button type="button" id="ieCancel">취소</button><button class="primary" type="submit">저장</button></div>
     </form>
   </div>
@@ -459,7 +496,6 @@
     <strong style="font-size:16px">일기 수정</strong>
     <form id="editForm" style="display:flex;flex-direction:column;gap:12px">
       <div class="row2"><label>학번 <input id="eSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6"></label><label>이름 <input id="eName" required maxlength="20"></label></div>
-      <label>별명 <input id="eNick" required maxlength="40"></label>
       <label>내용 <textarea id="eBody" required maxlength="300"></textarea></label>
       <div class="row" style="justify-content:flex-end"><button type="button" id="eCancel">취소</button><button class="primary" type="submit">저장</button></div>
     </form>

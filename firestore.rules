@@ -33,7 +33,7 @@ service cloud.firestore {
       allow read: if resource.data.hidden == false || isTeacher();
       allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'nick', 'body', 'hidden', 'createdAt'])
         && validSid(request.resource.data.sid)
-        && text(request.resource.data.nick, 40)
+        && (!('nick' in request.resource.data) || text(request.resource.data.nick, 40))   // 별명은 이제 배움 시작에서 받음 (예전 화면 호환)
         && text(request.resource.data.body, 300)
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time;   // (교사는 저장 기록 불러오기 때 원래 시각으로 복원)
@@ -49,14 +49,15 @@ service cloud.firestore {
       allow read, update, delete: if isTeacher();
     }
 
-    // 오늘 배움 시작: 연상 단어 (원본처럼 학번·이름이 수업 화면에 보임)
+    // 오늘 배움 시작: 연상 단어 + 나의 별명 (원본처럼 학번·이름이 수업 화면에 보임)
     match /intro/{id} {
       allow read: if resource.data.hidden == false || isTeacher();
-      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'name', 'w1', 'w2', 'hidden', 'createdAt'])
+      allow create: if isTeacher() || request.resource.data.keys().hasOnly(['sid', 'name', 'w1', 'w2', 'nick', 'hidden', 'createdAt'])
         && validSid(request.resource.data.sid)
         && text(request.resource.data.name, 20)
         && text(request.resource.data.w1, 20)
         && text(request.resource.data.w2, 20)
+        && (!('nick' in request.resource.data) || text(request.resource.data.nick, 40))   // 나의 별명 (배움 시작)
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time;
       allow update, delete: if isTeacher();
