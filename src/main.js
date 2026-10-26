@@ -155,7 +155,7 @@ function renderClose() {
     `<div class="card"><div class="who"><button type="button" class="nick-btn" data-id="${esc(e.id)}" title="누르면 이름 보기">👤 ${esc(nickOf(e) || '학생')}</button> <span class="no">${esc(e.sid)}</span>${revealed.has(e.id) && e.name ? `<span class="real-name">${esc(e.name)}</span>` : ''}${isTeacher ? `<button type="button" class="pick-btn ${picks.teacher === e.id ? 'on' : ''}" data-pick="teacher" data-id="${esc(e.id)}" title="선생님 추천 일기로 바로 보여 주기">🏆 ${picks.teacher === e.id ? '추천 중' : '추천'}</button>` : ''}</div><q>${esc(e.body)}</q></div>`).join('')
     : '<div class="empty">아직 제출된 일기가 없어요. QR 코드로 첫 일기를 받아 보세요.</div>';
   const t = v.find((e) => e.id === picks.teacher);
-  $('#tQuote').textContent = t ? `"${t.body}"` : (isTeacher ? '왼쪽 일기 카드의 🏆 추천을 누르면 바로 보여요' : '교사 관리 모드에서 추천 일기를 골라 주세요');
+  $('#tQuote').textContent = t ? `"${t.body}"` : (isTeacher ? '선생님, 위 일기 카드에서🏆를 눌러 추천해 주세요.' : '교사 관리 모드에서 추천 일기를 골라 주세요');
   $('#tBy').textContent = t ? '- ' + label(t) : '';
   const { e: a, reason } = currentAi(v);
   $('#aiQuote').textContent = a ? `"${a.body}"` : '';
@@ -179,7 +179,7 @@ function renderIntro() {
     : '<div class="empty">아직 제출이 없어요.</div>';
   $('#trio').innerHTML = picks.best.map((id, i) => { const e = v.find((x) => x.id === id); if (!e?.nick) return '';
     return `<div class="card"><div class="rank">✨ 추천 ${i + 1} (${esc(e.sid)})${isTeacher ? `<button type="button" class="pick-x" data-pick="best" data-id="${esc(e.id)}" title="빼기" aria-label="별명 명작에서 빼기">✕</button>` : ''}</div><div class="nick">"${esc(e.nick)}"</div></div>`; }).join('')
-    || `<div class="empty">${isTeacher ? '위 목록 카드의 ✨ 명작을 누르면 바로 보여요' : '교사 관리 모드에서 별명 명작을 골라 주세요'}</div>`;
+    || `<div class="empty">${isTeacher ? '선생님, 위 목록 카드에서🏆 눌러 명작을 추천해 주세요.' : '교사 관리 모드에서 별명 명작을 골라 주세요'}</div>`;
 }
 /* ================= 🧑‍🏫 칠판 판서 (src/board.js) ================= */
 const boardUI = initBoard({ $, esc, toast, db, auth, DAYS, isTeacher: () => isTeacher, lesson: () => lesson });

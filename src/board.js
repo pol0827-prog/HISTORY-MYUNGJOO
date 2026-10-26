@@ -26,7 +26,7 @@ const DEF_STYLE = {
   unit: { f: 'pen', s: 100, c: '#9fd8ff' }, sub: { f: 'pen', s: 100, c: '#9fd8ff' }, topic: { f: 'pen', s: 100, c: '#ffe27a' },
   std: { f: 'pen', s: 100, c: '#e9e5d8' }, body: { f: 'pen', s: 0, c: '#f4f1e8' },   // 강의 내용 s=0 → 자동 맞춤
 };
-const EMPTY = () => ({ id: '', unit: '', sub: '', topic: '', std: '', body: '', body2: '', cols: 1, style: JSON.parse(JSON.stringify(DEF_STYLE)), ink: [], viz: null });
+const EMPTY = () => ({ id: '', unit: '', sub: '', topic: '', std: '', body: '', body2: '', cols: 1, style: JSON.parse(JSON.stringify(DEF_STYLE)), ink: [], viz: null, noteAlt: null });
 const TXT = ['unit', 'sub', 'topic', 'std', 'body', 'body2'];
 const clean = (b) => {
   const x = EMPTY(); if (!b) return x;
@@ -34,6 +34,7 @@ const clean = (b) => {
   x.id = b.id || ''; x.cols = b.cols === 2 ? 2 : 1;
   PARTS.forEach(({ k }) => (x.style[k] = { ...DEF_STYLE[k], ...(b.style?.[k] || {}) }));
   x.ink = Array.isArray(b.ink) ? b.ink : []; x.viz = b.viz && b.viz.data ? b.viz : null;
+  x.noteAlt = b.noteAlt && typeof b.noteAlt.body === 'string' ? { body: b.noteAlt.body, body2: b.noteAlt.body2 || '', isOrig: !!b.noteAlt.isOrig } : null;
   return x;
 };
 
@@ -47,7 +48,8 @@ export function initBoard(ctx) {
 
   /* ---------- 글자 모양 ---------- */
   const fontCss = (k) => (FONTS.find((f) => f.k === k) || FONTS[0]).css;
-  const partStyle = (k, extra = '') => { const s = board.style[k], base = PARTS.find((p) => p.k === k).base;
+  const partStyle = (k, extra = '') => partStyleOf(editing && draft ? draft : board, k, extra);
+  const partStyleOf = (b, k, extra = '') => { const s = b.style[k], base = PARTS.find((p) => p.k === k).base;
     return `font-family:${fontCss(s.f)};color:${s.c};${s.s ? `font-size:calc(var(--cb-u) * ${(base * s.s / 100).toFixed(2)})` : ''};${extra}`; };
   const chalkInline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<em>$1</em>').replace(/(->|=>)/g, '→');
   function chalkBody(body) {
@@ -227,30 +229,34 @@ export function initBoard(ctx) {
   function renderBar() {
     const T = ctx.isTeacher(), v = board.viz;
     $('#cbBar').innerHTML = editing
-      ? `<span class="cb-note">✏️ 칠판에 바로 적고 있어요</span>
+      ? `<div class="cb-fmt" id="cbFmt">${fmtHTML()}</div>
          <button type="button" class="sm" data-b="cols">${draft.cols === 2 ? '▥ 1단으로' : '▥ 2단으로 나누기'}</button>
-         <button type="button" class="sm" data-b="style">Aa 글꼴·크기·색</button>
          <button type="button" class="sm danger" data-b="wipe">내용 모두 지우기</button>
          <button type="button" class="sm" data-b="cancel">취소</button>
          <button type="button" class="primary sm" data-b="done">💾 저장하고 칠판에 보이기</button>`
       : `${T ? '<button type="button" class="primary sm" data-b="edit">✏️ 내용 쓰기·고치기</button>' : ''}
          ${T ? `<button type="button" class="sm" data-b="cols">${board.cols === 2 ? '▥ 1단으로' : '▥ 2단으로 나누기'}</button>` : ''}
-         <button type="button" class="sm" data-b="style">Aa 글꼴·크기·색</button>
          ${T ? `<button type="button" class="sm" data-b="viz">🌳 AI 구조도</button>${v?.data ? `<button type="button" class="sm" data-b="vizToggle">${v.show ? '📝 판서 보기' : '🌳 구조도 보기'}</button>` : ''}` : ''}
          ${T ? '<button type="button" class="sm" data-b="note">🗒️ 노트 필기용 정리</button>' : ''}
+         ${T && board.noteAlt ? `<button type="button" class="sm" data-b="noteSwap" title="노트 필기용 정리 전후를 바꿔 보여요">${board.noteAlt.isOrig ? '↩ 정리 전 판서로' : '🗒️ 노트 정리본으로'}</button>` : ''}
          ${T ? `<button type="button" class="sm ${dirty ? 'primary' : ''}" data-b="save">💾 저장${dirty ? ' ●' : ''}</button>` : ''}
          <button type="button" class="primary sm" data-b="full">⛶ ${isFull() ? '크게 보기 닫기' : '칠판 크게 보기'}</button>`;
   }
   $('#cbBar').addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return; const a = b.dataset.b;
-    if (a === 'edit') { draft = clean(board); editing = true; renderAll(); $('#cbContent [data-k=topic]')?.focus(); }
+    if (a === 'edit') { draft = clean(board); editing = true; fmtPart = 'topic'; renderAll(); $('#cbContent [data-k=topic]')?.focus(); }
     if (a === 'cancel') { editing = false; draft = null; renderAll(); }
     if (a === 'wipe') { if (!confirmOnce(b, '한 번 더 누르면 칠판 글을 모두 비워요 (저장해야 반영돼요)')) return; TXT.forEach((k) => (draft[k] = '')); renderAll(); }
     if (a === 'done') { readDraft(); board = { ...board, ...Object.fromEntries(TXT.map((k) => [k, draft[k]])), cols: draft.cols, style: draft.style };
       if (board.viz) board.viz = { ...board.viz, show: false };
       editing = false; draft = null; await save('칠판에 저장했어요'); }
     if (a === 'cols') { const t = editing ? (readDraft(), draft) : board; t.cols = t.cols === 2 ? 1 : 2; if (!editing) touch(); renderAll(); }
-    if (a === 'style') openStyle();
+    if (a === 'noteSwap' && board.noteAlt) {
+      const cur = { body: board.body, body2: board.body2, isOrig: !board.noteAlt.isOrig };
+      board.body = board.noteAlt.body; board.body2 = board.noteAlt.body2; board.noteAlt = cur;
+      if (board.viz) board.viz = { ...board.viz, show: false };
+      renderAll(); await save(cur.isOrig ? '노트 정리본으로 바꿨어요' : '정리 전 원래 판서로 되돌렸어요');
+    }
     if (a === 'save') save('판서를 저장했어요');
     if (a === 'full') full();
     if (a === 'viz') openViz();
@@ -260,34 +266,37 @@ export function initBoard(ctx) {
   function readDraft() { document.querySelectorAll('#cbContent [data-k]').forEach((el) => (draft[el.dataset.k] = el.value)); }
   $('#cbContent').addEventListener('input', (e) => { if (editing && e.target.dataset.k) draft[e.target.dataset.k] = e.target.value; });
 
-  /* ---------- 글꼴·크기·색 (칠판 화면에서 바로) ---------- */
-  function openStyle() {
-    const st = (editing ? draft : board).style;
-    $('#cbPop').innerHTML = `<div class="cb-pop-h"><b>Aa 칠판 글꼴·크기·색</b><button type="button" class="sm" data-p="close">닫기</button></div>
-      ${PARTS.map(({ k, t }) => `<div class="cb-sty" data-part="${k}"><b>${t}</b>
-        <select data-p="font" aria-label="${t} 글꼴">${FONTS.map((f) => `<option value="${f.k}" ${st[k].f === f.k ? 'selected' : ''} style="font-family:${f.css}">${f.t}</option>`).join('')}</select>
-        <span class="cb-size"><button type="button" class="sm" data-p="minus" aria-label="${t} 작게">−</button><span>${k === 'body' && !st[k].s ? '자동' : (st[k].s || 100) + '%'}</span><button type="button" class="sm" data-p="plus" aria-label="${t} 크게">+</button>${k === 'body' ? `<button type="button" class="sm" data-p="auto">자동</button>` : ''}</span>
-        <span class="cb-cols">${COLORS.map((c) => `<button type="button" class="cb-c ${st[k].c === c.c ? 'on' : ''}" data-p="color" data-c="${c.c}" title="${c.t}" aria-label="${t} 색: ${c.t}" style="--dot:${c.c}"></button>`).join('')}</span></div>`).join('')}
-      <div class="cb-pop-f"><button type="button" class="sm" data-p="reset">처음 모양으로</button>${ctx.isTeacher() ? '' : '<span class="muted">이 화면에서만 바뀌어요</span>'}</div>`;
-    $('#cbPop').hidden = false;
+  /* ---------- 글꼴·크기·색: 내용 쓰기·고치기 안에서, 지금 고르고 있는 칸에 바로 ---------- */
+  let fmtPart = 'topic';
+  const partOf = (k) => (k === 'body2' ? 'body' : k);
+  function fmtHTML() {
+    const k = fmtPart, t = PARTS.find((p) => p.k === k).t, st = draft.style[k];
+    return `<span class="cb-fmt-k" title="글자 모양을 바꿀 칸 (칠판에서 칸을 누르면 바뀌어요)">Aa <b>${t}</b></span>
+      <select data-f="font" aria-label="${t} 글꼴">${FONTS.map((f) => `<option value="${f.k}" ${st.f === f.k ? 'selected' : ''} style="font-family:${f.css}">${f.t}</option>`).join('')}</select>
+      <span class="cb-size"><button type="button" class="sm" data-f="minus" aria-label="${t} 작게">가−</button><span>${k === 'body' && !st.s ? '자동' : (st.s || 100) + '%'}</span><button type="button" class="sm" data-f="plus" aria-label="${t} 크게">가+</button>${k === 'body' ? `<button type="button" class="sm ${st.s ? '' : 'on'}" data-f="auto" title="칠판에 꽉 차게 자동으로">자동</button>` : ''}</span>
+      <span class="cb-cols">${COLORS.map((c) => `<button type="button" class="cb-c ${st.c === c.c ? 'on' : ''}" data-f="color" data-c="${c.c}" title="${c.t}" aria-label="${t} 색: ${c.t}" style="--dot:${c.c}"></button>`).join('')}</span>
+      <button type="button" class="sm" data-f="reset" title="이 칸 글자 모양을 처음대로">↺</button>`;
   }
+  // 고른 칸의 입력칸 모양만 바로 바꿈 (다시 그리지 않아서 쓰던 자리 그대로)
+  function applyFmtLive() {
+    document.querySelectorAll('#cbContent [data-k]').forEach((el) => { if (partOf(el.dataset.k) === fmtPart) el.setAttribute('style', partStyleOf(draft, fmtPart)); });
+    if (fmtPart === 'std') $('#cbContent .cb-std')?.style.setProperty('color', draft.style.std.c);
+    $('#cbFmt').innerHTML = fmtHTML();
+  }
+  $('#cbContent').addEventListener('focusin', (e) => { const k = e.target.dataset?.k; if (!editing || !k || partOf(k) === fmtPart) return; fmtPart = partOf(k); $('#cbFmt').innerHTML = fmtHTML(); });
+  $('#cbBar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-f]'); if (!b || !editing) return; const f = b.dataset.f, st = draft.style[fmtPart];
+    if (f === 'minus' || f === 'plus') { let v = st.s || 100; st.s = Math.max(50, Math.min(250, v + (f === 'plus' ? 10 : -10))); }
+    if (f === 'auto') st.s = 0;
+    if (f === 'color') st.c = b.dataset.c;
+    if (f === 'reset') draft.style[fmtPart] = { ...DEF_STYLE[fmtPart] };
+    applyFmtLive();
+  });
+  $('#cbBar').addEventListener('change', (e) => { if (e.target.dataset.f !== 'font' || !editing) return; draft.style[fmtPart].f = e.target.value; applyFmtLive(); });
   $('#cbPop').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return; const p = b.dataset.p; if (!p) return;
     if (p === 'close') { $('#cbPop').hidden = true; return; }
     if (p === 'vizgo') return makeViz(b.dataset.mode, b);
-    const t = editing ? draft : board;
-    if (p === 'reset') t.style = JSON.parse(JSON.stringify(DEF_STYLE));
-    const k = b.closest('[data-part]')?.dataset.part;
-    if (k) { const s = t.style[k];
-      if (p === 'minus' || p === 'plus') { let v = s.s || 100; v = Math.max(50, Math.min(250, v + (p === 'plus' ? 10 : -10))); s.s = v; }
-      if (p === 'auto') s.s = 0;
-      if (p === 'color') s.c = b.dataset.c; }
-    if (editing) readDraft();
-    if (!editing) touch(); renderAll(); openStyle();
-  });
-  $('#cbPop').addEventListener('change', (e) => {
-    if (e.target.dataset.p !== 'font') return; const k = e.target.closest('[data-part]').dataset.part, t = editing ? draft : board;
-    if (editing) readDraft(); t.style[k].f = e.target.value; if (!editing) touch(); renderAll(); openStyle();
   });
 
   /* ---------- 🌳 AI 구조도: 가지치기(마인드맵) · 그물망(개념 연결) ---------- */
@@ -379,26 +388,18 @@ export function initBoard(ctx) {
         <div class="cb-pop-f"><button type="button" class="sm" data-p="close">그대로 두기</button><button type="button" class="primary sm" id="cbNoteApply">칠판에 적용</button></div>`;
       $('#cbPop').hidden = false;
       $('#cbNoteApply').onclick = async () => {
-        prev = { body: board.body, body2: board.body2 };
+        board.noteAlt = { body: board.body, body2: board.body2, isOrig: true };   // 정리 전 판서 보관 → [↩ 정리 전 판서로]
         board.body = $('#cbNote1').value; if ($('#cbNote2')) board.body2 = $('#cbNote2').value;
         if (board.viz) board.viz = { ...board.viz, show: false };
-        $('#cbPop').hidden = true; renderAll(); await save('노트 필기용으로 정리해서 칠판에 적었어요');
-        toastUndo();
+        $('#cbPop').hidden = true; renderAll(); await save('노트 필기용으로 정리했어요. [↩ 정리 전 판서로]를 누르면 언제든 되돌려요');
       };
     } catch (err) { console.error(err); toast(`정리하지 못했어요: ${err.message}`); }
     finally { btn.disabled = false; btn.textContent = t0; }
   }
-  let prev = null;
-  function toastUndo() {
-    const t = $('#toast'); t.innerHTML = '노트용으로 바꿨어요 <button type="button" class="sm" id="cbUndoNote">원래대로</button>'; t.hidden = false;
-    clearTimeout(t._t); t._t = setTimeout(() => (t.hidden = true), 7000);
-    $('#cbUndoNote').onclick = async () => { if (!prev) return; Object.assign(board, prev); prev = null; t.hidden = true; renderAll(); await save('원래 판서로 되돌렸어요'); };
-  }
-
   /* ---------- 저장 (지금 칠판 + 저장된 판서 모음) ---------- */
   let autoT;
   function touch() { dirty = true; renderBar(); clearTimeout(autoT); if (ctx.isTeacher()) autoT = setTimeout(() => save(''), 4000); }
-  const payload = () => ({ ...Object.fromEntries(TXT.map((k) => [k, board[k]])), cols: board.cols, style: board.style, ink: board.ink, viz: board.viz || null });
+  const payload = () => ({ ...Object.fromEntries(TXT.map((k) => [k, board[k]])), cols: board.cols, style: board.style, ink: board.ink, viz: board.viz || null, noteAlt: board.noteAlt || null });
   async function save(msg) {
     clearTimeout(autoT);
     if (!ctx.isTeacher()) { if (msg) toast('저장은 교사 관리 모드로 들어온 기기에서만 할 수 있어요'); return; }
