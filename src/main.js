@@ -926,8 +926,8 @@ async function buildSlides(p) {
   const rest = [...photos];
   const cover = rest.shift();
   slides.push(`<div class="sl sl-title ${cover ? 'has-photo' : ''}"><div class="sl-tx">
-      <span class="sl-kind">${kindLabel(p.kind)} 발표${p.cls ? ` · ${esc(p.cls)}` : ''}</span>
-      <h2 style="font-size:${titleSize(p.title)}">${esc(p.title)}</h2><div class="sl-by">${esc(p.name)}${p.sid ? ` <small>(${esc(p.sid)})</small>` : ''}</div></div>${fig(cover)}</div>`);
+      <span class="sl-kind">${kindLabel(p.kind)} 발표${p.cls && p.kind === 'group' ? ` · ${esc(p.cls)}` : ''}</span>
+      <h2 style="font-size:${titleSize(p.title)}">${esc(p.title)}</h2><div class="sl-by">${esc(p.name)}${p.sid && p.kind !== 'group' ? ` <small>(${esc(p.sid)})</small>` : ''}</div></div>${fig(cover)}</div>`);
   // 발표 화면은 5장 안팎: 표지 1 + 내용 최대 3 + (남은 사진·링크) 1
   for (const g of groupBlocks(blocks, 3)) {
     const ph = rest.shift();
