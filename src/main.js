@@ -158,7 +158,7 @@ function renderIntro() {
   $('#bars').innerHTML = top.length ? `<div class="axis">${ticks.map((t) => `<span>${t}</span>`).join('')}</div>
     <div class="plot"><div class="grid">${ticks.map(() => '<i></i>').join('')}</div>${top.map(([w, c]) => `<div class="col"><div class="bar" style="height:${(c / tmax) * 100}%"><b>${c}</b></div><span class="lab" title="${esc(w)}">${esc(w)}</span></div>`).join('')}</div>`
     : '<div class="empty" style="grid-column:1/-1">아직 제출된 단어가 없어요.</div>';
-  $('#iList').innerHTML = v.length ? [...v].sort((a, b) => a.sid.localeCompare(b.sid)).map((e) => `<div class="card"><div class="who">${esc(e.sid)} ${esc(e.name)}${e.nick ? ` <span class="i-nick">👤 ${esc(e.nick)}</span>` : ''}</div><div style="margin-top:4px">💡 단어1: ${esc(e.w1)} / 단어2: ${esc(e.w2)}</div></div>`).join('')
+  $('#iList').innerHTML = v.length ? [...v].sort((a, b) => a.sid.localeCompare(b.sid)).map((e) => `<div class="card"><div class="who">${esc(e.sid)}${e.nick ? ` <span class="i-nick">👤 ${esc(e.nick)}</span>` : ''}</div><div style="margin-top:4px">💡 단어1: ${esc(e.w1)} / 단어2: ${esc(e.w2)}</div></div>`).join('')
     : '<div class="empty">아직 제출이 없어요.</div>';
   $('#trio').innerHTML = picks.best.map((id, i) => { const e = v.find((x) => x.id === id); if (!e?.nick) return '';
     return `<div class="card"><div class="rank">✨ 추천 ${i + 1} (${esc(e.sid)})</div><div class="nick">"${esc(e.nick)}"</div></div>`; }).join('')
@@ -775,7 +775,7 @@ function posterHTML(kind, land) {
         <div class="box"><h2>💡 수업 최다 키워드 Top 3</h2><div class="top3">${wc.slice(0, 3).map(([w, c]) => `${esc(w)} (${c}회)`).join(' | ') || '-'}</div></div></div>
       <div class="two"><div class="box"><h2>☁️ 학생 연상 단어 구름</h2><div class="cloud">${order.map(([w, c], i) => `<span style="font-size:${13 + Math.round((c / max) * 30)}px;color:${PC[(w.length + i) % PC.length]}">${esc(w)}</span>`).join('')}</div></div>
         <div class="box"><h2>📊 연상 단어 제출 빈도 Top 5</h2><div class="pbars">${top.map(([w, c], i) => `<div><em>${c}</em><i class="${i ? '' : 'first'}" style="height:${(c / tmax) * 100}%"></i><span>${esc(w)}</span></div>`).join('')}</div></div></div>
-      <div class="box"><h2>📖 학생별 ${S} 연상 단어 · 별명</h2><div class="grid" style="grid-template-columns:repeat(${land ? 5 : 4},1fr)">${v.map((e) => `<div class="card"><div class="who">${esc(e.sid)} ${esc(e.name)}</div><p>${esc(e.w1)} · ${esc(e.w2)}${e.nick ? `<br><b>"${esc(e.nick)}"</b>` : ''}</p></div>`).join('')}</div></div>
+      <div class="box"><h2>📖 학생별 ${S} 연상 단어 · 별명</h2><div class="grid" style="grid-template-columns:repeat(${land ? 5 : 4},1fr)">${v.map((e) => `<div class="card"><div class="who">${esc(e.sid)}${e.nick ? ` ${esc(e.nick)}` : ''}</div><p>${esc(e.w1)} · ${esc(e.w2)}</p></div>`).join('')}</div></div>
       ${best.length ? `<div class="box"><h2>✨ 오늘의 ${S} 별명 명작</h2><div class="trio">${best.map((e, i) => `<div><small>추천 ${i + 1} (${esc(e.sid)})</small><b>"${esc(e.nick)}"</b></div>`).join('')}</div></div>` : ''}
       ${foot(cfg.introQuote, cfg.introQuoteBy, cfg.introClosing)}`;
   }
