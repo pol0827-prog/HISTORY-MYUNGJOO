@@ -102,9 +102,9 @@ service cloud.firestore {
         && request.resource.data.hidden == false
         && request.resource.data.order == 0
         && request.resource.data.createdAt == request.time);
-      // 올린 기기(owner)이거나, 학번·이름이 처음과 같으면 고칠 수 있음
+      // 올린 기기(owner)이거나, 학번이 처음과 같으면 고칠 수 있음 (이름·모둠명은 바꿔도 됨)
       allow update: if isTeacher() || (request.auth != null
-        && (resource.data.owner == request.auth.uid || (request.resource.data.sid == resource.data.sid && request.resource.data.name == resource.data.name))
+        && (resource.data.owner == request.auth.uid || request.resource.data.sid == resource.data.sid)
         && validPresent(request.resource.data)
         && request.resource.data.diff(resource.data).unchangedKeys().hasAll(['owner', 'hidden', 'order', 'createdAt']));
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
