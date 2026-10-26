@@ -67,7 +67,7 @@ export function initBoard(ctx) {
     close(); return html;
   }
   const dateText = (withTime) => { const d = new Date(), p = (n) => String(n).padStart(2, '0');
-    return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})${withTime ? ` <b>${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${p(d.getMinutes())}:${p(d.getSeconds())}</b>` : ''}`; };
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DAYS[d.getDay()]})${withTime ? ` <b>${d.getHours() < 12 ? '오전' : '오후'} ${d.getHours() % 12 || 12}:${p(d.getMinutes())}</b>` : ''}`; };
 
   /* ---------- 칠판 그리기 (내용) ---------- */
   const isFull = () => !!document.fullscreenElement || !!$('#boardWrap').classList.contains('cb-fake-full');
