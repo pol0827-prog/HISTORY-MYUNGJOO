@@ -72,7 +72,7 @@
         <div class="book-page" id="bookPage" hidden><canvas id="bookCanvas"></canvas><canvas class="bk-ink" id="bkInk" aria-label="교과서 필기"></canvas></div>
         <div class="book-empty" id="bookEmpty">
           <span class="bk-title">📖 교과서 보기</span>
-          <p>아래 <b>[📂 자료 올리기]</b>를 누르거나, 교과서 <b>PDF</b>(또는 사진)를 여기로 끌어다 놓으세요.<br>올린 자료와 필기는 <b>이 컴퓨터</b>에 저장돼서 다음 수업에도 바로 열려요.</p>
+          <p>아래 <b>[📂 자료 올리기 및 저장]</b>을 누르거나, 교과서 <b>PDF</b>(또는 사진)를 여기로 끌어다 놓으세요.<br>올린 자료와 필기는 <b>이 컴퓨터</b>에 저장돼서 다음 수업에도 바로 열려요.</p>
           <p class="muted">한글(HWP) 파일은 한글에서 [파일 → PDF로 저장하기]로 PDF를 만든 뒤 올려 주세요.</p>
         </div>
       </div>
@@ -280,9 +280,13 @@
     </section>
 
     <section class="panel book-only board-admin">
-      <h2>📖 교과서 보기 <span class="muted">교과서 PDF를 수업 화면에 띄우고 펜·형광펜·도형으로 필기하며 수업해요</span></h2>
-      <p class="muted" style="margin:0 0 10px">자료와 필기는 올린 컴퓨터(브라우저)에만 저장돼요. 교실 수업용 컴퓨터에서 수업 화면을 열고 올려 주세요.</p>
-      <a class="btn primary" href="#class">📺 수업 화면에서 교과서 열기</a>
+      <h2>📖 저장된 교과서 <span class="muted">수업 화면의 교과서 보기에서 [📂 자료 올리기 및 저장]으로 올린 자료가 여기에 모여요. [불러오기]를 누르면 수업 화면에 바로 열려요</span></h2>
+      <p class="muted" style="margin:0 0 10px">교과서와 필기는 올린 <b>이 컴퓨터(브라우저)</b>에 저장돼요. 수업 화면을 띄우는 교실 컴퓨터에서 이 화면을 열어 주세요.</p>
+      <div class="row" style="margin-bottom:10px"><a class="btn primary" href="#class">📺 수업 화면에서 교과서 보기</a></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>교과서</th><th>크기</th><th>올린 날</th><th>관리</th></tr></thead>
+        <tbody id="bkSavedRows"></tbody>
+      </table></div>
     </section>
     <section class="panel board-only board-admin">
       <h2>🧑‍🏫 저장된 판서 <span class="muted">판서는 수업 화면의 칠판에서 바로 쓰고 고쳐요. 저장한 판서는 여기에 모이고, 불러오면 칠판에 바로 보여요</span></h2>
