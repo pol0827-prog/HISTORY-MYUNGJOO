@@ -191,8 +191,9 @@ function renderIntro() {
 }
 /* ================= 🧑‍🏫 칠판 판서 (src/board.js) ================= */
 const boardUI = initBoard({ $, esc, toast, db, auth, DAYS, isTeacher: () => isTeacher, lesson: () => lesson });
-const renderBoard = () => { if (lesson === 'board' || isTeacher) boardUI.render(); if (lesson === 'book' && !$('#v-class').hidden) bookUI.show(); };
-const bookUI = initBook({ $, esc, toast, lesson: () => lesson });
+const renderBoard = () => { if (lesson === 'board' || isTeacher) boardUI.render(); if (lesson === 'book' && !$('#v-class').hidden) bookUI.show(); if (lesson === 'book' && isTeacher) bookUI.refreshList(); };
+const bookUI = initBook({ $, esc, toast, DAYS, lesson: () => lesson, isTeacher: () => isTeacher,
+  setLesson: async (m) => { showLesson(m); try { await setDoc(doc(db, 'settings', 'state'), { lesson: m }, { merge: true }); } catch { /* 이 화면만 바뀜 */ } } });
 
 function renderAll() { renderBoard(); renderClose(); renderIntro(); renderPresent(); renderTalk(); renderDeckTalk(); if (isTeacher) { renderTeacherClose(); renderTeacherIntro(); renderTeacherPresent(); renderTeacherTalk(); scheduleAutoArchive(); } }
 
