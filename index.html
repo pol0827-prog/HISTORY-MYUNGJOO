@@ -226,6 +226,8 @@
         <label><span id="pSidLbl">학번</span> <input id="pSid" required inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="예: 20101" title="숫자 4~6자리로 적어 주세요"></label>
         <label><span id="pNameLbl">이름</span> <input id="pName" required maxlength="60" placeholder="예: 홍길동"></label>
       </div>
+      <label class="p-pin"><span>🔒 비밀번호 <span class="muted" id="pPinHelp">숫자 4자리 · 처음 올릴 때 정하고, 나중에 고칠 때 꼭 필요해요 (잊지 마세요!)</span></span>
+        <input id="pPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" placeholder="예: 1234" title="숫자 4자리"></label>
       <label>발표 제목 <input id="pTitle" required maxlength="60" placeholder="예: 나폴레옹은 영웅인가, 독재자인가?"></label>
       <label>발표 내용 <span class="muted">빈 줄로 나누면 발표 화면이 한 장씩 넘어가요. 줄 앞에 - 를 쓰면 글머리표, # 을 쓰면 소제목이 돼요.</span>
         <textarea id="pBody" maxlength="3000" rows="9" placeholder="# 발표 주제를 고른 까닭&#10;- 나폴레옹은 프랑스 혁명의 이념을 유럽에 퍼뜨렸다&#10;- 하지만 스스로 황제가 되었다&#10;&#10;# 우리 모둠의 생각&#10;혁명의 정신을 지킨 사람인지, 혁명을 끝낸 사람인지 함께 생각해 보자."></textarea></label>
