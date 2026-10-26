@@ -696,13 +696,14 @@ async function enterTeacher() {
     onSnapshot(collection(db, 'pcomments'), (s) => { allComments = s.docs.map(toEntry); renderAll(); }, console.error),
     onSnapshot(collection(db, 'pcommentNames'), (s) => { cNames = new Map(s.docs.map((d) => [d.id, d.data()])); renderAll(); }, console.error),
     onSnapshot(collection(db, 'presents'), (s) => { rulesMissing = false; allPresents = s.docs.map(toEntry); renderAll(); }, (err) => { console.error(err); rulesMissing = true; renderAll(); }),
+    onSnapshot(collection(db, 'presentKeys'), (s) => { pins = new Map(s.docs.map((d) => [d.id, d.data().pin])); renderTeacherPresent(); }, console.error),
     onSnapshot(query(collection(db, 'archives'), orderBy('savedAt', 'desc')), (s) => { archives = s.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })); renderArchives(); }, onErr),
   ];
   fillCfgForm(cfg); boardUI.teacherOn(); renderAll();
 }
 function leaveTeacher() {
   isTeacher = false; teacherUnsubs.forEach((u) => u()); teacherUnsubs = [];
-  allEntries = []; names = new Map(); allIntro = []; allPresents = []; allComments = []; cNames = new Map();
+  allEntries = []; names = new Map(); allIntro = []; allPresents = []; allComments = []; cNames = new Map(); pins = new Map();
   $('#lock').hidden = false; $('#tBody').hidden = true; boardUI.teacherOff(); renderAll();
 }
 
@@ -1219,11 +1220,19 @@ function renderTeacherPresent() {
     <td class="num"><div class="row"><b>${i + 1}</b><button type="button" class="sm" data-a="up" ${i ? '' : 'disabled'} aria-label="앞으로">▲</button><button type="button" class="sm" data-a="down" ${i < list.length - 1 ? '' : 'disabled'} aria-label="뒤로">▼</button></div></td>
     <td>${e.thumb ? `<img class="pt-thumb" src="${e.thumb}" alt="">` : '-'}</td>
     <td><b>${esc(e.title)}</b><div class="muted">📷 ${e.nPhotos || 0} · 🔗 ${e.links?.length || 0} · 💬 ${commentsOf(e.id).length} · ${reactsText(e.id)}</div></td>
-    <td>${kindLabel(e.kind)} · ${esc(e.name)} <span class="muted">(${esc(e.sid)})</span></td><td class="num">${hm(e.at)}</td>
+    <td>${kindLabel(e.kind)} · ${esc(e.name)} <span class="muted">(${esc(e.sid)})</span></td>
+    <td class="num">${pins.has(e.id) ? `<button type="button" class="sm pin-btn" data-a="pin" title="누르면 5초 동안 보여요">${shownPin === e.id ? esc(pins.get(e.id)) : '●●●●'}</button>` : '<span class="muted">없음</span>'}</td><td class="num">${hm(e.at)}</td>
     <td><span class="state ${e.hidden ? 'off' : 'on'}">${e.hidden ? '숨김' : '표시 중'}</span></td>
     <td class="act"><div class="row"><button type="button" class="sm primary" data-a="view">보기</button><button type="button" class="sm" data-a="edit">고치기</button><button type="button" class="sm" data-a="toggle">${e.hidden ? '보이기' : '숨기기'}</button><button type="button" class="sm danger" data-a="del">삭제</button></div></td></tr>`).join('')
-    : '<tr><td colspan="7" class="empty">아직 올라온 발표 자료가 없어요.</td></tr>';
+    : '<tr><td colspan="8" class="empty">아직 올라온 발표 자료가 없어요.</td></tr>';
 }
+// 🔒 학생 발표 비밀번호 (교사만 읽을 수 있음). 수업 화면에 띄워도 보이지 않게 가려 두고, 누를 때만 잠깐 보여 줌
+let pins = new Map(), shownPin = null, shownT;
+$('#ptRows').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-a=pin]'); if (!b) return; e.stopPropagation();
+  shownPin = shownPin === b.closest('tr').dataset.id ? null : b.closest('tr').dataset.id; renderTeacherPresent();
+  clearTimeout(shownT); shownT = setTimeout(() => { shownPin = null; renderTeacherPresent(); }, 5000);
+}, true);
 $('#ptRows').onclick = async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const tr = b.closest('tr'), id = tr.dataset.id, list = presentsAll().sort(pOrder), i = list.findIndex((x) => x.id === id), en = list[i], a = b.dataset.a;
