@@ -18,7 +18,13 @@ const hm = (d) => (d ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()
 const linkFor = (v) => `${location.origin}${location.pathname}#${v}`;
 const ts = (e) => e.at?.getTime?.() ?? 0;
 // 별명은 '오늘 배움 시작'에서 받음. 배움 마무리 일기에는 같은 학번의 배움 시작 별명을 붙여 보여 줌 (예전 일기는 일기에 적힌 별명)
-const nickOf = (e) => e?.nick || intro().find((x) => x.sid === e?.sid)?.nick || '';
+// 같은 반에서 그 학번이 배움 시작 때 지은 별명 (가장 최근 것)
+function introNick(sid, c = className) {
+  let best = null;
+  (isTeacher ? allIntro : pubIntro).forEach((x) => { if (x.sid === sid && x.nick && clsOf(x.id) === c && (!best || ts(x) >= ts(best))) best = x; });
+  return best?.nick || '';
+}
+const nickOf = (e) => (e ? introNick(e.sid, e.cls ?? className) || e.nick || '' : '');
 const label = (e) => `[${e.sid}]${nickOf(e) ? ' ' + nickOf(e) : ''}`;
 /* 반 구분: 문서 ID 앞에 반 이름을 붙여 저장 ("2학년%201반~랜덤ID"). 반 없는 예전 기록은 '' */
 const clsPrefix = (c) => (c ? encodeURIComponent(c) + '~' : '');
@@ -218,7 +224,7 @@ function fitChalk(boardEl) {
 }
 function renderBoard() {
   $('#chalkboard').innerHTML = chalkHTML(board);
-  $('#cbFont').textContent = `가 글씨 크기: ${CB_SIZES.find((x) => x.k === cbSize)?.t || '자동'}`;
+  $('#cbFont').textContent = `칠판 글씨 크기: ${CB_SIZES.find((x) => x.k === cbSize)?.t || '자동'}`;
   if (lesson === 'board') requestAnimationFrame(() => fitChalk($('#chalkboard')));
   if (isTeacher) renderBoardMini();
 }
@@ -386,21 +392,29 @@ function renderFormCls() {
 }
 $('#diaryForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const sid = $('#wSid').value.trim(), name = $('#wName').value.trim(), body = $('#wBody').value.trim();
+  const sid = $('#wSid').value.trim(), name = $('#wName').value.trim(), body = $('#wBody').value.trim(), nick = introNick(sid, formCls());
   const bad = checkStudent(sid, name) || (!body ? '일기를 적어 주세요.' : '');
   if (bad) { $('#wErr').textContent = bad; return; }
   const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; $('#wErr').textContent = '';
   try {
     // 수업 화면용 일기와, 교사만 보는 이름을 따로 저장
     const ref = doc(db, 'entries', newId('entries', formCls())); const batch = writeBatch(db);
-    batch.set(ref, { sid, body, hidden: false, createdAt: serverTimestamp() });
+    // 배움 시작 별명을 일기에도 함께 저장해 두어, 배움 시작 기록을 비운 뒤에도 별명이 유지되게 함
+    batch.set(ref, { sid, ...(nick ? { nick } : {}), body, hidden: false, createdAt: serverTimestamp() });
     batch.set(doc(db, 'entryNames', ref.id), { sid, name });
     await batch.commit();
     e.target.reset(); e.target.hidden = true; $('#done').hidden = false;
   } catch (err) { console.error(err); $('#wErr').textContent = '제출하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'; }
   finally { btn.disabled = false; }
 });
-$('#again').onclick = () => { $('#done').hidden = true; $('#diaryForm').hidden = false; };
+$('#again').onclick = () => { $('#done').hidden = true; $('#diaryForm').hidden = false; showWriteNick(); };
+// 학번을 적으면 배움 시작 때 지은 별명을 보여 줌 (마무리에도 그 별명으로 올라감)
+$('#wSid').closest('.row2').insertAdjacentHTML('afterend', '<div class="w-nick" id="wNickShow" hidden></div>');
+function showWriteNick() {
+  const sid = $('#wSid').value.trim(), n = /^[0-9]{4,6}$/.test(sid) ? introNick(sid, formCls()) : '';
+  $('#wNickShow').hidden = !n; if (n) $('#wNickShow').innerHTML = `👤 나의 ${esc(cfg.subject)} 별명: <b>${esc(n)}</b> <span class="muted">(배움 시작 때 지은 별명으로 올라가요)</span>`;
+}
+$('#wSid').addEventListener('input', showWriteNick);
 
 $('#introForm').addEventListener('submit', async (e) => {
   e.preventDefault();
