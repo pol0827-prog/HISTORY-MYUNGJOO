@@ -87,7 +87,7 @@ service cloud.firestore {
 
     // 🎤 발표 자료: 학생은 자동 익명 로그인으로 올리고, 자기 기기(owner)에서만 다시 고치거나 지울 수 있음
     function validPresent(d) {
-      return d.keys().hasOnly(['sid', 'name', 'kind', 'title', 'body', 'links', 'thumb', 'nPhotos', 'owner', 'hidden', 'order', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['sid', 'name', 'kind', 'title', 'body', 'links', 'thumb', 'nPhotos', 'hasPin', 'owner', 'hidden', 'order', 'createdAt', 'updatedAt'])
         && validSid(d.sid) && text(d.name, 60) && d.kind in ['solo', 'group'] && text(d.title, 60)
         && d.body is string && d.body.size() <= 3000
         && d.links is list && d.links.size() <= 3
@@ -102,9 +102,11 @@ service cloud.firestore {
         && request.resource.data.hidden == false
         && request.resource.data.order == 0
         && request.resource.data.createdAt == request.time);
-      // 올린 기기(owner)이거나, 학번이 처음과 같으면 고칠 수 있음 (이름·모둠명은 바꿔도 됨)
+      // 올린 기기(owner)이거나, 🔒 비밀번호를 맞힌 기기이거나, 비밀번호가 없던 예전 발표는 학번이 같으면 고칠 수 있음
       allow update: if isTeacher() || (request.auth != null
-        && (resource.data.owner == request.auth.uid || request.resource.data.sid == resource.data.sid)
+        && (resource.data.owner == request.auth.uid
+          || exists(/databases/$(database)/documents/presentUnlock/$(request.auth.uid + '__' + id))
+          || (!exists(/databases/$(database)/documents/presentKeys/$(id)) && request.resource.data.sid == resource.data.sid))
         && validPresent(request.resource.data)
         && request.resource.data.diff(resource.data).unchangedKeys().hasAll(['owner', 'hidden', 'order', 'createdAt']));
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
@@ -121,6 +123,23 @@ service cloud.firestore {
         && (getAfter(/databases/$(database)/documents/presents/$(id)).data.owner == request.auth.uid
           || getAfter(/databases/$(database)/documents/presents/$(id)).data.updatedAt == request.time));
       allow delete: if isTeacher() || (request.auth != null && resource.data.owner == request.auth.uid);
+    }
+
+    // 🔒 발표 비밀번호 (숫자 4자리): 아무도 읽을 수 없음. 처음 한 번만 정할 수 있고, 바꾸거나 지우는 것은 선생님만
+    match /presentKeys/{id} {
+      allow read: if false;
+      allow create: if isTeacher() || (request.auth != null
+        && request.resource.data.keys().hasOnly(['pin']) && request.resource.data.pin is string && request.resource.data.pin.matches('^[0-9]{4}$'));
+      allow update, delete: if isTeacher();
+    }
+    // 비밀번호 확인: 맞는 비밀번호를 넣은 기기만 이 문서를 만들 수 있고, 그 기기는 그 발표를 고칠 수 있음
+    match /presentUnlock/{key} {
+      allow read: if false;
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['pres', 'pin'])
+        && key == request.auth.uid + '__' + request.resource.data.pres
+        && request.resource.data.pin == get(/databases/$(database)/documents/presentKeys/$(request.resource.data.pres)).data.pin;
+      allow delete: if isTeacher();
     }
 
     // 💬 발표 댓글: 학번·종류·내용은 누구나 보고, 이름(pcommentNames)은 교사만
