@@ -1125,13 +1125,22 @@ $('#presentForm').addEventListener('submit', async (e) => {
       }
       pf.id = id; pf.sid = x.sid;
     }
-    await bt.commit();
+    try { await bt.commit(); }
+    catch (err) {
+      if (err.code !== 'permission-denied') throw err;
+      // 고칠 권한이 없으면(다른 기기·다른 이름·숨긴 발표 등) 막지 않고 새 발표로 올림
+      const id = newId('presents', formCls()), b2 = writeBatch(db);
+      b2.set(doc(db, 'presents', id), { ...data, owner: user.uid, hidden: false, order: 0, createdAt: serverTimestamp() });
+      b2.set(doc(db, 'presentPhotos', id), { ...photos, owner: user.uid });
+      await b2.commit();
+      pf.id = id; pf.owner = user.uid; pf.sid = x.sid;
+    }
     if (!myPresents.includes(pf.id)) { myPresents.push(pf.id); saveMine(); }
     $('#presentForm').hidden = true; $('#pDone').hidden = false; renderMine();
     $('#pDone').dataset.id = pf.id;
   } catch (err) {
     console.error(err); if (!pf.owner || err.code === 'permission-denied') { pf.id = null; pf.owner = ''; }
-    $('#pErr').textContent = err.code === 'permission-denied' ? '이 발표를 고치지 못했어요. 처음 올릴 때와 같은 학번(모둠은 대표 학번)으로 다시 해 주세요. 그래도 안 되면 선생님께 알려 주세요.' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
+    $('#pErr').textContent = err.code === 'permission-denied' ? '올리지 못했어요. 선생님께 알려 주세요. (선생님: Firebase 규칙을 새로 게시해야 해요)' : '올리지 못했어요. 사진이 너무 많거나 인터넷이 불안정할 수 있어요. 다시 눌러 주세요.';
   } finally { btn.disabled = false; btn.textContent = label0; }
 });
 async function viewOne(id) {
