@@ -1012,7 +1012,7 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => { if (!$('#deck').hidden) showSlide(); });
 
 /* --- 학생 편집 화면 (올리기 · 고치기) --- */
-const pf = { id: null, photos: [], links: [], owner: '', sid: '' };
+const pf = { id: null, photos: [], links: [], owner: '', sid: '', hasPin: false };
 let myPresents = []; try { myPresents = JSON.parse(localStorage.getItem('myPresents') || '[]'); } catch { /* 무시 */ }
 const saveMine = () => { try { localStorage.setItem('myPresents', JSON.stringify(myPresents.slice(-20))); } catch { /* 무시 */ } };
 const pKind = () => document.querySelector('input[name=pKind]:checked')?.value || 'solo';
@@ -1059,7 +1059,7 @@ $('#pLinkList').onclick = (e) => { const b = e.target.closest('button'); if (!b)
 $('#pLinkAdd').onclick = () => { pf.links.push({ label: '', url: '' }); renderLinkList(); $('#pLinkList .p-link:last-child .ur').focus(); };
 
 function resetPresentForm() {
-  pf.id = null; pf.photos = []; pf.links = []; pf.owner = ''; pf.sid = '';
+  pf.id = null; pf.photos = []; pf.links = []; pf.owner = ''; pf.sid = ''; pf.hasPin = false; setPinHelp();
   $('#presentForm').reset(); syncKind(); renderPhotoList(); renderLinkList();
   $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; $('#pErr').textContent = '';
 }
@@ -1072,11 +1072,11 @@ async function openPresentForm(editId) {
     if (!d.exists()) { toast('발표 자료를 찾지 못했어요'); return resetPresentForm(); }
     const x = d.data(), photos = await photosOf({ id: editId, nPhotos: x.nPhotos || 0, updatedAt: x.updatedAt });
     resetPresentForm();
-    pf.id = editId; pf.sid = x.sid || ''; pf.owner = x.owner || ''; pf.photos = photos.map((p) => ({ ...p })); pf.links = (x.links || []).map((l) => ({ label: l.label || '', url: l.url || '' }));
+    pf.id = editId; pf.sid = x.sid || ''; pf.hasPin = !!x.hasPin; pf.owner = x.owner || ''; pf.photos = photos.map((p) => ({ ...p })); pf.links = (x.links || []).map((l) => ({ label: l.label || '', url: l.url || '' }));
     document.querySelector(`input[name=pKind][value=${x.kind === 'group' ? 'group' : 'solo'}]`).checked = true; syncKind();
     $('#pSid').value = x.sid || ''; $('#pName').value = x.name || ''; $('#pTitle').value = x.title || ''; $('#pBody').value = x.body || '';
     renderPhotoList(); renderLinkList();
-    $('#pEditNote').hidden = false; $('#pSubmit').textContent = '고친 내용 저장';
+    $('#pEditNote').hidden = false; $('#pSubmit').textContent = '고친 내용 저장'; setPinHelp();
     urlCls = clsOf(editId); renderFormCls();
   } catch (err) { console.error(err); toast('발표 자료를 불러오지 못했어요'); }
 }
@@ -1090,7 +1090,7 @@ function loadMyPresent() {
   // 다른 학번: 불러온 발표는 그대로 두고, 지금 쓴 내용은 새 발표로 올라감
   if (pf.id) { detachPresent(); toast('처음 올린 학번과 달라서 새 발표로 올라가요 (전에 올린 발표는 그대로 남아요)'); }
 }
-function detachPresent() { pf.id = null; pf.owner = ''; pf.sid = ''; $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; }
+function detachPresent() { pf.id = null; pf.owner = ''; pf.sid = ''; pf.hasPin = false; setPinHelp(); $('#pEditNote').hidden = true; $('#pSubmit').textContent = '올리기'; }
 $('#pSid').addEventListener('input', loadMyPresent);
 $('#pSid').addEventListener('change', loadMyPresent);
 function formPresent() {
@@ -1099,12 +1099,20 @@ function formPresent() {
     links: pf.links.map((l) => ({ label: l.label.trim().slice(0, 40), url: l.url.trim().slice(0, 500) })).filter((l) => l.url),
   };
 }
+// 🔒 발표 비밀번호: 처음 올릴 때 정하고, 고칠 때 맞아야 저장됨 (비밀번호는 presentKeys에 따로, 아무도 읽을 수 없게)
+function setPinHelp() {
+  const h = $('#pPinHelp'); if (!h) return;
+  h.textContent = !pf.id ? '숫자 4자리 · 처음 올릴 때 정하고, 나중에 고칠 때 꼭 필요해요 (잊지 마세요!)'
+    : pf.hasPin ? '처음 올릴 때 정한 비밀번호 4자리를 넣어야 고칠 수 있어요' : '비밀번호가 없던 발표예요. 이번에 정할 비밀번호 4자리를 넣어 주세요';
+  $('#pPin').value = '';
+}
 function checkPresent(x) {
   if (!x.sid) return '학번을 적어 주세요.';
   if (!/^[0-9]{4,6}$/.test(x.sid)) return '학번은 숫자 4~6자리로 적어 주세요. 예: 20101';
   if (!isTeacher) { const bad = checkNo(x.sid); if (bad) return bad; }
   if (!x.name) return x.kind === 'group' ? '모둠 이름과 모둠원을 적어 주세요.' : '이름을 적어 주세요.';
   if (!x.title) return '발표 제목을 적어 주세요.';
+  if (!isTeacher && !/^[0-9]{4}$/.test($('#pPin').value.trim())) return '🔒 비밀번호를 숫자 4자리로 적어 주세요.';
   if (!x.body && !pf.photos.length && !x.links.length) return '발표 내용, 사진, 링크 중 하나는 넣어 주세요.';
   const bad = x.links.find((l) => !safeUrl(l.url)); if (bad) return `링크 주소를 확인해 주세요: ${bad.url}`;
   return '';
@@ -1125,28 +1133,41 @@ $('#presentForm').addEventListener('submit', async (e) => {
   const btn = $('#pSubmit'); btn.disabled = true; $('#pErr').textContent = ''; const label0 = btn.textContent; btn.textContent = '올리는 중…';
   try {
     const user = auth.currentUser || (await signInAnonymously(auth)).user;
-    const data = { ...x, thumb: await makeThumb(), nPhotos: pf.photos.length, updatedAt: serverTimestamp() };
+    const pin = $('#pPin').value.trim();
+    const data = { ...x, hasPin: true, thumb: await makeThumb(), nPhotos: pf.photos.length, updatedAt: serverTimestamp() };
+    // 이미 있는 발표를 고칠 때: 비밀번호부터 확인 (선생님 기기는 그냥 통과)
+    const unlock = async (id, had) => {
+      if (isTeacher || !had) return true;
+      try { await setDoc(doc(db, 'presentUnlock', `${user.uid}__${id}`), { pres: id, pin }); return true; }
+      catch (err) { if (err.code === 'permission-denied') return false; throw err; }
+    };
     const photos = { photos: pf.photos.map((p) => p.src), caps: pf.photos.map((p) => p.cap.trim().slice(0, 60)) };
     const bt = writeBatch(db);
     if (pf.id && pf.sid && pf.sid !== x.sid) detachPresent();   // 학번이 바뀌면 새 발표로
     if (pf.id) {
+      if (!(await unlock(pf.id, pf.hasPin))) { $('#pErr').textContent = '🔒 비밀번호가 맞지 않아요. 처음 올릴 때 정한 4자리를 넣어 주세요. (잊었으면 선생님께 말씀드려요)'; return; }
       bt.update(doc(db, 'presents', pf.id), data);
       bt.set(doc(db, 'presentPhotos', pf.id), { ...photos, owner: pf.owner || user.uid });
+      if (!pf.hasPin && pin) bt.set(doc(db, 'presentKeys', pf.id), { pin });
     } else {
       // 한 사람(모둠은 대표 학번) 발표 1개: 문서 ID = 반~학번. 이미 있으면 같은 학번·이름일 때 고쳐짐
       const id = findMyPresent(x.sid)?.id || clsPrefix(formCls()) + x.sid;
       let ex = null; try { const d = await getDoc(doc(db, 'presents', id)); ex = d.exists() ? d.data() : null; } catch { ex = { owner: '' }; }
       if (ex) {
+        if (!(await unlock(id, !!ex.hasPin))) { $('#pErr').textContent = '🔒 이 학번으로 올린 발표가 이미 있어요. 그 발표의 비밀번호 4자리를 넣어야 고칠 수 있어요.'; return; }
+        if (!ex.hasPin && pin) bt.set(doc(db, 'presentKeys', id), { pin });
         bt.update(doc(db, 'presents', id), data);
         bt.set(doc(db, 'presentPhotos', id), { ...photos, owner: ex.owner || user.uid });
         pf.owner = ex.owner || user.uid;
       } else {
         bt.set(doc(db, 'presents', id), { ...data, owner: user.uid, hidden: false, order: 0, createdAt: serverTimestamp() });
         bt.set(doc(db, 'presentPhotos', id), { ...photos, owner: user.uid });
+        if (pin) bt.set(doc(db, 'presentKeys', id), { pin });
         pf.owner = user.uid;
       }
       pf.id = id; pf.sid = x.sid;
     }
+    pf.hasPin = true;
     try { await bt.commit(); }
     catch (err) {
       if (err.code !== 'permission-denied') throw err;
@@ -1154,6 +1175,7 @@ $('#presentForm').addEventListener('submit', async (e) => {
       const id = newId('presents', formCls()), b2 = writeBatch(db);
       b2.set(doc(db, 'presents', id), { ...data, owner: user.uid, hidden: false, order: 0, createdAt: serverTimestamp() });
       b2.set(doc(db, 'presentPhotos', id), { ...photos, owner: user.uid });
+      if (pin) b2.set(doc(db, 'presentKeys', id), { pin });
       await b2.commit();
       pf.id = id; pf.owner = user.uid; pf.sid = x.sid;
     }
