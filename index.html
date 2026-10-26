@@ -21,7 +21,7 @@
   </section>
 </div>
 <div class="topbar"><div class="in">
-  <nav class="nav" aria-label="화면 전환"><span class="nav-cls"><a href="#class" data-v="class">📺 수업 화면</a><button type="button" class="nav-qr" id="navQr" title="수업 화면 주소 QR 코드">QR</button></span><a href="#intro" data-v="intro" class="intro-only">📝 학생 제출 양식 안내하기 (배움 시작)</a><a href="#write" data-v="write" class="close-only">📝 학생 제출 양식 안내하기 (배움 마무리)</a><a href="#present" data-v="present" class="present-only">📝 학생 제출 양식 안내하기 (배움공유)</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a><button type="button" class="nav-reload" id="navReload" title="화면을 다시 불러와요">🔄 화면 새로고침</button></nav>
+  <nav class="nav" aria-label="화면 전환"><span class="nav-cls"><a href="#class" data-v="class">📺 수업 화면</a><button type="button" class="nav-qr" id="navQr" title="수업 화면 주소 QR 코드">QR</button></span><a href="#intro" data-v="intro" class="intro-only">📝 학생 제출 양식 안내하기 (배움 시작)</a><a href="#present" data-v="present" class="present-only">📝 학생 제출 양식 안내하기 (배움공유)</a><a href="#write" data-v="write" class="close-only">📝 학생 제출 양식 안내하기 (배움 마무리)</a><a href="#teacher" data-v="teacher">🔒 교사 관리 모드</a><button type="button" class="nav-reload" id="navReload" title="화면을 다시 불러와요">🔄 화면 새로고침</button></nav>
   <div class="tools">
   <button type="button" class="mode-btn qf-open" id="qfOpen" hidden>📱 학생 제출용 QR 펴기</button>
   <time class="clock" id="clock"></time>
@@ -40,12 +40,12 @@
       <div class="sub book-only">오늘의 강의 · 교과서 보기</div>
     </div>
     <div class="row">
-      <div class="lesson-switch" role="group" aria-label="칠판 판서, 교과서 보기, 오늘 배움 시작, 마무리, 배움공유">
+      <div class="lesson-switch" role="group" aria-label="오늘 배움 시작, 칠판 판서, 교과서 보기, 배움공유, 마무리">
+        <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="board">🧑‍🏫 칠판 판서</button>
         <button type="button" data-lesson="book">📖 교과서 보기</button>
-        <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
-        <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
         <button type="button" data-lesson="present">🎤 배움공유<span class="ls-n" data-prescount></span></button>
+        <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
       </div>
       <span class="chip cls-chip" id="clsChip" hidden></span>
       <span class="chip stu-chip">학생 수: <span id="cStu">0</span>명</span>
@@ -274,12 +274,12 @@
     <div class="t-cols"><div class="t-main">
     <section class="panel lesson-bar">
       <div><b>지금 화면</b><div class="muted">누르면 수업 화면과 아래 관리 내용이 함께 바뀌어요. 학생 제출 QR 코드도 단계에 맞게 바뀝니다. 칠판 판서는 강의할 때 띄우는 화면이에요.</div></div>
-      <div class="lesson-switch big" role="group" aria-label="칠판 판서, 교과서 보기, 오늘 배움 시작, 마무리, 배움공유">
+      <div class="lesson-switch big" role="group" aria-label="오늘 배움 시작, 칠판 판서, 교과서 보기, 배움공유, 마무리">
+        <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
         <button type="button" data-lesson="board">🧑‍🏫 칠판 판서</button>
         <button type="button" data-lesson="book">📖 교과서 보기</button>
-        <button type="button" data-lesson="intro">🚪 오늘 배움 시작</button>
-        <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
         <button type="button" data-lesson="present">🎤 배움공유<span class="ls-n" data-prescount></span></button>
+        <button type="button" data-lesson="close">🏁 오늘 배움 마무리</button>
       </div>
     </section>
 
@@ -427,8 +427,8 @@
       <h2>🔗 수업 링크 <span class="muted" id="linkCls"></span></h2>
       <div class="links">
         <div><b>학생 제출 (배움 시작)</b><code data-link="intro"></code><button type="button" class="sm" data-copy="intro">복사</button></div>
-        <div><b>학생 제출 (배움 마무리)</b><code data-link="write"></code><button type="button" class="sm" data-copy="write">복사</button></div>
         <div><b>학생 제출 (배움공유)</b><code data-link="present"></code><button type="button" class="sm" data-copy="present">복사</button></div>
+        <div><b>학생 제출 (배움 마무리)</b><code data-link="write"></code><button type="button" class="sm" data-copy="write">복사</button></div>
         <div><b>수업 화면</b><code data-link="class"></code><button type="button" class="sm" data-copy="class">복사</button></div>
         <div><b>교사 관리 모드</b><code data-link="teacher"></code><button type="button" class="sm" data-copy="teacher">복사</button></div>
       </div>
@@ -539,7 +539,7 @@
     </div>
     <div class="poster-opts">
       <div class="seg" role="group" aria-label="화면"><span>화면</span>
-        <button type="button" data-pv="lesson" data-val="intro">오늘 배움 시작</button><button type="button" data-pv="lesson" data-val="close">오늘 배움 마무리</button><button type="button" data-pv="lesson" data-val="present">배움공유</button></div>
+        <button type="button" data-pv="lesson" data-val="intro">오늘 배움 시작</button><button type="button" data-pv="lesson" data-val="present">배움공유</button><button type="button" data-pv="lesson" data-val="close">오늘 배움 마무리</button></div>
       <div class="seg" role="group" aria-label="용지"><span>용지</span>
         <button type="button" data-pv="paper" data-val="A4">A4</button><button type="button" data-pv="paper" data-val="B4">B4</button></div>
       <div class="seg" role="group" aria-label="방향"><span>방향</span>
